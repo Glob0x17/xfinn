@@ -281,7 +281,6 @@ struct SeriesDetailView: View {
             return
         }
         
-        print("📺 [SeriesDetail] Début du chargement des saisons pour: \(series.name) [ID: \(series.id)]")
         hasLoaded = true
         isLoading = true
         
@@ -507,7 +506,6 @@ struct SeasonEpisodesView: View {
             return
         }
         
-        print("📺 [SeasonEpisodes] Début du chargement des épisodes pour: \(season.name) [ID: \(season.id)]")
         hasLoaded = true
         isLoading = true
         

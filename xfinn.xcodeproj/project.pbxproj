@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		98EB12822EFAEA3A008ECB35 /* SEARCH_VIEW_FOCUS_FIX.md in Resources */ = {isa = PBXBuildFile; fileRef = 98EB12812EFAEA3A008ECB35 /* SEARCH_VIEW_FOCUS_FIX.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		98C673BE2ED362D300D73BA8 /* xfinn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = xfinn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		98EB12812EFAEA3A008ECB35 /* SEARCH_VIEW_FOCUS_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SEARCH_VIEW_FOCUS_FIX.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -34,6 +39,7 @@
 			children = (
 				98C673C02ED362D300D73BA8 /* xfinn */,
 				98C673BF2ED362D300D73BA8 /* Products */,
+				98EB12812EFAEA3A008ECB35 /* SEARCH_VIEW_FOCUS_FIX.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				98EB12822EFAEA3A008ECB35 /* SEARCH_VIEW_FOCUS_FIX.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

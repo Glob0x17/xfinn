@@ -139,12 +139,6 @@ struct LoginView: View {
                 .glowing(color: .appAccent, radius: 15)
                 .offset(y: animateLogo ? 0 : 20)
                 .opacity(animateLogo ? 1.0 : 0.0)
-            
-            Text("Votre passerelle vers l'entertainment")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Color.appTextSecondary)
-                .offset(y: animateLogo ? 0 : 20)
-                .opacity(animateLogo ? 1.0 : 0.0)
         }
     }
     
