@@ -74,32 +74,32 @@ struct AppTheme {
     
     // MARK: - Typography
     
-    /// Très grand titre (pour les écrans principaux)
-    static let largeTitle = Font.system(size: 60, weight: .bold)
+    /// Très grand titre (pour les écrans principaux) - Optimisé pour tvOS
+    static let largeTitle = Font.system(size: 70, weight: .bold)
     
-    /// Titre principal
-    static let title = Font.system(size: 50, weight: .bold)
+    /// Titre principal - Optimisé pour tvOS
+    static let title = Font.system(size: 58, weight: .bold)
     
-    /// Titre secondaire
-    static let title2 = Font.system(size: 40, weight: .semibold)
+    /// Titre secondaire - Optimisé pour tvOS
+    static let title2 = Font.system(size: 46, weight: .semibold)
     
-    /// Titre de section
-    static let title3 = Font.system(size: 34, weight: .semibold)
+    /// Titre de section - Optimisé pour tvOS
+    static let title3 = Font.system(size: 38, weight: .semibold)
     
-    /// En-tête
-    static let headline = Font.system(size: 28, weight: .medium)
+    /// En-tête - Optimisé pour tvOS
+    static let headline = Font.system(size: 32, weight: .medium)
     
-    /// Corps de texte
-    static let body = Font.system(size: 24)
+    /// Corps de texte - Optimisé pour tvOS
+    static let body = Font.system(size: 28)
     
-    /// Corps de texte secondaire
-    static let bodySecondary = Font.system(size: 22)
+    /// Corps de texte secondaire - Optimisé pour tvOS
+    static let bodySecondary = Font.system(size: 26)
     
-    /// Légende
-    static let caption = Font.system(size: 20)
+    /// Légende - Optimisé pour tvOS
+    static let caption = Font.system(size: 24)
     
-    /// Petite légende
-    static let caption2 = Font.system(size: 18)
+    /// Petite légende - Optimisé pour tvOS
+    static let caption2 = Font.system(size: 22)
     
     // MARK: - Spacing
     
@@ -211,11 +211,14 @@ struct AppTheme {
     
     // MARK: - Focus Effects (tvOS)
     
-    /// Scale lors du focus
+    /// Scale lors du focus - Standard
     static let focusScale: CGFloat = 1.05
     
-    /// Scale lors du focus (grand)
+    /// Scale lors du focus - Large (pour cartes importantes)
     static let largeFocusScale: CGFloat = 1.1
+    
+    /// Scale lors du focus - Extra large (pour éléments principaux)
+    static let extraLargeFocusScale: CGFloat = 1.15
     
     // MARK: - Gradients
     
@@ -440,6 +443,7 @@ struct CustomCardButtonStyle: ButtonStyle {
     @Environment(\.isFocused) private var isFocused
     
     func makeBody(configuration: Configuration) -> some View {
+        #if os(tvOS)
         configuration.label
             .scaleEffect(isFocused ? 1.05 : 1.0)
             // Effet de lumière colorée qui se propage (sans contour)
@@ -463,9 +467,14 @@ struct CustomCardButtonStyle: ButtonStyle {
             )
             .animation(AppTheme.springAnimation, value: isFocused)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .focusEffectDisabled()  // Désactiver l'effet système
+        #else
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+        #endif
     }
 }
-
+          
 // MARK: - View Modifier Extensions
 
 extension View {

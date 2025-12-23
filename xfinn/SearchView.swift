@@ -74,13 +74,16 @@ struct SearchView: View {
                     .font(.system(size: 30, weight: .semibold))
                     .foregroundColor(.appTextPrimary)
                     .frame(width: 60, height: 60)
-                    .background(AppTheme.glassBackground)
-                    .clipShape(Circle())
-                    .overlay(
+                    .background(
                         Circle()
-                            .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                            .fill(AppTheme.glassBackground)
+                            .overlay(
+                                Circle()
+                                    .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                            )
                     )
             }
+            .buttonStyle(CustomCardButtonStyle(cornerRadius: 30))
             
             // Barre de recherche
             HStack(spacing: 15) {
@@ -106,15 +109,18 @@ struct SearchView: View {
                             .font(.system(size: 22))
                             .foregroundColor(.appTextTertiary)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 25)
             .padding(.vertical, 20)
-            .background(AppTheme.glassBackground)
-            .cornerRadius(20)
-            .overlay(
+            .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                    .fill(AppTheme.glassBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                    )
             )
         }
     }
@@ -337,28 +343,19 @@ struct FilterPill: View {
             .foregroundColor(isSelected ? .white : .appTextSecondary)
             .padding(.horizontal, 25)
             .padding(.vertical, 15)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? AppTheme.primary : AppTheme.glassBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(
+                                isSelected ? AppTheme.accent : AppTheme.glassStroke,
+                                lineWidth: isSelected ? 2 : 1
+                            )
+                    )
+            )
         }
-        .background(
-            ZStack {
-                if isSelected {
-                    Rectangle()
-                        .fill(AppTheme.primary)
-                } else {
-                    Rectangle()
-                        .fill(AppTheme.glassBackground)
-                }
-            }
-        )
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
-                    isSelected ? AppTheme.accent : AppTheme.glassStroke,
-                    lineWidth: isSelected ? 2 : 1
-                )
-        )
-        .scaleEffect(isFocused ? 1.05 : 1.0)
-        .animation(AppTheme.springAnimation, value: isFocused)
+        .buttonStyle(CustomCardButtonStyle(cornerRadius: 20))
     }
 }
 
