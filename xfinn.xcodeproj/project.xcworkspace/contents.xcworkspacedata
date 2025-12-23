@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "self:">
+   </FileRef>
+   <FileRef
+      location = "group:SUBTITLE_PLAYER_MENU_SYNC.md">
+   </FileRef>
+   <FileRef
+      location = "group:SUBTITLE_USER_GUIDE.md">
+   </FileRef>
+   <FileRef
+      location = "group:SUBTITLE_MENU_SYNC_TEST_PLAN.md">
+   </FileRef>
+   <FileRef
+      location = "group:SUBTITLE_PLAYER_BUTTON_SYNC.md">
+   </FileRef>
+   <FileRef
+      location = "group:SUBTITLE_SYNC_VISUAL_GUIDE.md">
+   </FileRef>
+</Workspace>
