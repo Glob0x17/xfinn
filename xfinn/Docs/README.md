@@ -146,6 +146,10 @@ L'application est spécifiquement optimisée pour tvOS :
 
 Ce projet est fourni à titre d'exemple pour l'apprentissage du développement tvOS avec Jellyfin.
 
+## À propos du projet
+
+J'ai fait cette app pour corriger un problème de décalage de son sur Apple TV. Je ne suis pas développeur Swift, c'est une IA qui a fait le code. Je fais au mieux pour juste avoir une application qui fonctionne.
+
 ## Auteur
 
 Dorian Galiana - 2025
