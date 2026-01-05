@@ -7,35 +7,53 @@
 
 import SwiftUI
 
+/// Données pré-calculées pour une particule de fond
+private struct ParticleData: Identifiable {
+    let id: Int
+    let size: CGFloat
+    let xRatio: CGFloat  // Ratio 0-1 pour la position X
+    let yRatio: CGFloat  // Ratio 0-1 pour la position Y
+}
+
 /// Vue d'accueil moderne avec design Liquid Glass
 struct HomeView: View {
     @ObservedObject var jellyfinService: JellyfinService
     @EnvironmentObject private var navigationCoordinator: NavigationCoordinator
-    
+
     @State private var resumeItems: [MediaItem] = []
     @State private var recentItems: [MediaItem] = []
     @State private var isLoading = true
     @State private var hasLoaded = false
     @State private var selectedTab = 0
     @State private var showSearchView = false
-    
+
     @Namespace private var focusNamespace
     @FocusState private var focusedItem: String?
-    
-    // 🎯 Focus explicite pour le bouton de recherche
+
+    // Focus explicite pour le bouton de recherche
     @FocusState private var isSearchButtonFocused: Bool
     @FocusState private var isLibraryButtonFocused: Bool
-    
+
+    // Particules pré-calculées pour éviter les re-renders
+    private let particles: [ParticleData] = (0..<8).map { index in
+        ParticleData(
+            id: index,
+            size: CGFloat.random(in: 200...400),
+            xRatio: CGFloat.random(in: 0...1),
+            yRatio: CGFloat.random(in: 0...1)
+        )
+    }
+
     var body: some View {
         NavigationStack(path: $navigationCoordinator.navigationPath) {
             ZStack {
                 // Background avec gradient
                 AppTheme.backgroundGradient
                     .ignoresSafeArea()
-                
-                // Particules flottantes subtiles
+
+                // Particules flottantes subtiles (positions pré-calculées)
                 GeometryReader { geometry in
-                    ForEach(0..<8, id: \.self) { index in
+                    ForEach(particles) { particle in
                         Circle()
                             .fill(
                                 RadialGradient(
@@ -48,10 +66,10 @@ struct HomeView: View {
                                     endRadius: 150
                                 )
                             )
-                            .frame(width: CGFloat.random(in: 200...400))
+                            .frame(width: particle.size)
                             .offset(
-                                x: CGFloat.random(in: 0...geometry.size.width),
-                                y: CGFloat.random(in: 0...geometry.size.height)
+                                x: particle.xRatio * geometry.size.width,
+                                y: particle.yRatio * geometry.size.height
                             )
                             .blur(radius: 40)
                     }
@@ -344,13 +362,15 @@ struct HomeView: View {
         do {
             resumeItems = try await jellyfinService.getResumeItems(limit: 10)
         } catch {
+            print("[HomeView] Erreur chargement items à reprendre: \(error.localizedDescription)")
         }
     }
-    
+
     private func loadRecentItems() async {
         do {
             recentItems = try await jellyfinService.getLatestItems(limit: 10)
         } catch {
+            print("[HomeView] Erreur chargement items récents: \(error.localizedDescription)")
         }
     }
 }
@@ -433,14 +453,6 @@ struct MediaCarousel: View {
                         .buttonStyle(CustomCardButtonStyle(cornerRadius: 20))
                         .focused($focusedItem, equals: item.id)
                         .prefersDefaultFocus(isFirstCarousel && index == 0, in: focusNamespace)
-                        .onAppear {
-                            // Définir le focus sur la première carte lors de l'apparition
-                            if isFirstCarousel && index == 0 && focusedItem == nil {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    focusedItem = item.id
-                                }
-                            }
-                        }
                     }
                 }
                 .padding(.horizontal, 60)

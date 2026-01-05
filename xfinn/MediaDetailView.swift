@@ -414,7 +414,9 @@ struct MediaDetailView: View {
                         countdown: nextEpisodeCountdown,
                         jellyfinService: jellyfinService,
                         onPlayNext: {
-                            playNextEpisode()
+                            Task {
+                                await playNextEpisode()
+                            }
                         },
                         onCancel: {
                             cancelAutoPlay()
@@ -541,9 +543,10 @@ struct MediaDetailView: View {
         do {
             nextEpisode = try await jellyfinService.getNextEpisode(currentItemId: item.id)
         } catch {
+            print("[MediaDetailView] Erreur chargement prochain épisode: \(error.localizedDescription)")
         }
     }
-    
+
     private func refreshUserData() async {
         do {
             let updatedItem = try await jellyfinService.getItemDetails(itemId: item.id)
@@ -551,6 +554,7 @@ struct MediaDetailView: View {
                 currentUserData = updatedItem.userData
             }
         } catch {
+            print("[MediaDetailView] Erreur rafraîchissement données utilisateur: \(error.localizedDescription)")
         }
     }
     
@@ -1067,65 +1071,67 @@ struct MediaDetailView: View {
     }
     
     // MARK: - Lecture automatique du prochain épisode
-    
+
+    /// Task pour le countdown afin d'éviter les race conditions avec Timer
+    @State private var countdownTask: Task<Void, Never>?
+
     private func startCountdown() {
-        // Annuler le timer précédent s'il existe
+        // Annuler le countdown précédent s'il existe
+        countdownTask?.cancel()
         countdownTimer?.invalidate()
-        
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] timer in
-            if self.nextEpisodeCountdown > 0 {
-                self.nextEpisodeCountdown -= 1
-            } else {
-                // Le compte à rebours est terminé, lancer l'épisode suivant
-                timer.invalidate()
-                if self.shouldAutoPlayNext {
-                    self.playNextEpisode()
+        countdownTimer = nil
+
+        // Utiliser une Task async au lieu d'un Timer pour éviter les race conditions
+        countdownTask = Task { @MainActor in
+            while !Task.isCancelled && nextEpisodeCountdown > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if !Task.isCancelled {
+                    nextEpisodeCountdown -= 1
                 }
+            }
+
+            // Vérifier qu'on n'a pas été annulé avant de lancer l'épisode suivant
+            if !Task.isCancelled && shouldAutoPlayNext {
+                await playNextEpisode()
             }
         }
     }
-    
-    private func playNextEpisode() {
+
+    private func playNextEpisode() async {
         guard let nextEpisode = nextEpisode else {
             return
         }
-        
-        // Nettoyer le timer
+
+        // Nettoyer le countdown
+        countdownTask?.cancel()
+        countdownTask = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
-        
+
         // Masquer l'overlay immédiatement
         showNextEpisodeOverlay = false
-        
+
         // Arrêter la lecture actuelle
         stopPlayback()
-        
-        // Attendre un court instant pour que le nettoyage soit terminé
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.5))
-            
-            // Fermer le player actuel
-            self.isPlaybackActive = false
-            
-            // Attendre que la fermeture soit complète
-            try? await Task.sleep(for: .seconds(0.5))
-            
-            // Retirer l'épisode actuel de la pile
-            navigationCoordinator.goBack()
-            
-            // Attendre un instant pour que la navigation back soit complète
-            try? await Task.sleep(for: .milliseconds(100))
-            
-            // Ajouter le nouvel épisode avec autoplay activé
-            navigationCoordinator.navigateTo(item: nextEpisode, autoPlay: true)
-        }
+
+        // Attendre que le cleanup soit terminé
+        try? await Task.sleep(for: .seconds(0.3))
+
+        // Fermer le player actuel
+        isPlaybackActive = false
+
+        // Utiliser replaceLastWith pour une navigation atomique
+        navigationCoordinator.shouldAutoPlay = true
+        navigationCoordinator.replaceLastWith(item: nextEpisode)
     }
     
     private func cancelAutoPlay() {
         shouldAutoPlayNext = false
+        countdownTask?.cancel()
+        countdownTask = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
-        
+
         withAnimation {
             showNextEpisodeOverlay = false
         }

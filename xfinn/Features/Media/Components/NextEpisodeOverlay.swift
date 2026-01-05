@@ -226,11 +226,10 @@ struct NextEpisodeOverlay: View {
             .padding(.bottom, 120)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .onAppear {
-            // Focus automatique sur le bouton "Lire maintenant"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                focusedButton = .playNext
-            }
+        .task {
+            // Focus automatique sur le bouton "Lire maintenant" via Task async
+            try? await Task.sleep(for: .milliseconds(100))
+            focusedButton = .playNext
         }
     }
     

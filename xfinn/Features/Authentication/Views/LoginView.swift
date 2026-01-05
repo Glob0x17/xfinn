@@ -7,9 +7,17 @@
 
 import SwiftUI
 
+/// Données pré-calculées pour une particule de fond
+private struct LoginParticleData: Identifiable {
+    let id: Int
+    let size: CGFloat
+    let xRatio: CGFloat
+    let yRatio: CGFloat
+}
+
 struct LoginView: View {
     @ObservedObject var jellyfinService: JellyfinService
-    
+
     @State private var serverURL = ""
     @State private var username = ""
     @State private var password = ""
@@ -17,7 +25,17 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var connectionStep: ConnectionStep = .server
     @State private var animateLogo = false
-    
+
+    // Particules pré-calculées pour éviter les re-renders
+    private let particles: [LoginParticleData] = (0..<15).map { index in
+        LoginParticleData(
+            id: index,
+            size: CGFloat.random(in: 100...300),
+            xRatio: CGFloat.random(in: 0...1),
+            yRatio: CGFloat.random(in: 0...1)
+        )
+    }
+
     enum ConnectionStep {
         case server
         case authentication
@@ -59,15 +77,15 @@ struct LoginView: View {
     }
     
     // MARK: - Background
-    
+
     private var backgroundView: some View {
         ZStack {
             // Gradient de base
             AppTheme.backgroundGradient
-            
-            // Particules flottantes
+
+            // Particules flottantes (positions pré-calculées)
             GeometryReader { geometry in
-                ForEach(0..<15, id: \.self) { index in
+                ForEach(particles) { particle in
                     Circle()
                         .fill(
                             LinearGradient(
@@ -79,11 +97,11 @@ struct LoginView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: CGFloat.random(in: 100...300))
+                        .frame(width: particle.size)
                         .blur(radius: 60)
                         .offset(
-                            x: CGFloat.random(in: 0...geometry.size.width),
-                            y: CGFloat.random(in: 0...geometry.size.height)
+                            x: particle.xRatio * geometry.size.width,
+                            y: particle.yRatio * geometry.size.height
                         )
                         .opacity(0.4)
                 }

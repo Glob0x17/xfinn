@@ -295,6 +295,7 @@ struct SeriesDetailView: View {
                 self.isLoading = false
             }
         } catch {
+            print("[SeriesDetailView] Erreur chargement saisons: \(error.localizedDescription)")
             self.hasLoaded = false
             self.isLoading = false
         }
