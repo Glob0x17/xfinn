@@ -67,8 +67,10 @@ class JellyfinService: ObservableObject {
     @MainActor
     func connect(to serverURL: String) async throws -> ServerInfo {
         self.baseURL = serverURL
-        
-        let url = URL(string: "\(baseURL)/System/Info/Public")!
+
+        guard let url = URL(string: "\(baseURL)/System/Info/Public") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.addJellyfinHeaders(clientName: clientName, deviceId: deviceId, version: clientVersion)
         
@@ -88,7 +90,9 @@ class JellyfinService: ObservableObject {
     /// Authentifie l'utilisateur avec son nom d'utilisateur et mot de passe
     @MainActor
     func authenticate(username: String, password: String) async throws {
-        let url = URL(string: "\(baseURL)/Users/AuthenticateByName")!
+        guard let url = URL(string: "\(baseURL)/Users/AuthenticateByName") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -162,7 +166,9 @@ class JellyfinService: ObservableObject {
     /// Charge les informations de l'utilisateur actuel
     @MainActor
     func loadCurrentUser() async throws {
-        let url = URL(string: "\(baseURL)/Users/\(userId)")!
+        guard let url = URL(string: "\(baseURL)/Users/\(userId)") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
@@ -175,7 +181,9 @@ class JellyfinService: ObservableObject {
     
     /// Récupère toutes les bibliothèques de l'utilisateur
     func getLibraries() async throws -> [LibraryItem] {
-        let url = URL(string: "\(baseURL)/Users/\(userId)/Views")!
+        guard let url = URL(string: "\(baseURL)/Users/\(userId)/Views") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
@@ -197,30 +205,35 @@ class JellyfinService: ObservableObject {
     
     /// Récupère les médias d'une bibliothèque ou d'un parent
     func getItems(parentId: String, includeItemTypes: [String]? = nil, recursive: Bool = false, limit: Int? = nil) async throws -> [MediaItem] {
-        var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items")!
-        
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items") else {
+            throw JellyfinError.invalidURL
+        }
+
         var queryItems = [
             URLQueryItem(name: "ParentId", value: parentId),
             URLQueryItem(name: "Fields", value: "Overview,PrimaryImageAspectRatio,MediaStreams"),
             URLQueryItem(name: "SortBy", value: "SortName"),
             URLQueryItem(name: "SortOrder", value: "Ascending")
         ]
-        
+
         if let types = includeItemTypes {
             queryItems.append(URLQueryItem(name: "IncludeItemTypes", value: types.joined(separator: ",")))
         }
-        
+
         if recursive {
             queryItems.append(URLQueryItem(name: "Recursive", value: "true"))
         }
-        
+
         if let limit = limit {
             queryItems.append(URLQueryItem(name: "Limit", value: "\(limit)"))
         }
-        
+
         urlComponents.queryItems = queryItems
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -231,14 +244,19 @@ class JellyfinService: ObservableObject {
     
     /// Récupère les médias en cours de lecture
     func getResumeItems(limit: Int = 12) async throws -> [MediaItem] {
-        var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/Resume")!
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/Resume") else {
+            throw JellyfinError.invalidURL
+        }
         urlComponents.queryItems = [
             URLQueryItem(name: "Limit", value: "\(limit)"),
             URLQueryItem(name: "Fields", value: "Overview,PrimaryImageAspectRatio,MediaStreams"),
             URLQueryItem(name: "MediaTypes", value: "Video")
         ]
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -249,24 +267,27 @@ class JellyfinService: ObservableObject {
     
     /// Récupère les médias récemment ajoutés
     func getLatestItems(parentId: String? = nil, limit: Int = 16) async throws -> [MediaItem] {
-        var urlComponents: URLComponents
-        
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/Latest") else {
+            throw JellyfinError.invalidURL
+        }
+
         if let parentId = parentId {
-            urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/Latest")!
             urlComponents.queryItems = [
                 URLQueryItem(name: "ParentId", value: parentId),
                 URLQueryItem(name: "Limit", value: "\(limit)"),
                 URLQueryItem(name: "Fields", value: "Overview,PrimaryImageAspectRatio,MediaStreams")
             ]
         } else {
-            urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/Latest")!
             urlComponents.queryItems = [
                 URLQueryItem(name: "Limit", value: "\(limit)"),
                 URLQueryItem(name: "Fields", value: "Overview,PrimaryImageAspectRatio,MediaStreams")
             ]
         }
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -280,9 +301,11 @@ class JellyfinService: ObservableObject {
     /// Recherche des médias par mots-clés
     func search(query: String, includeItemTypes: [String]? = nil, limit: Int = 50) async throws -> [MediaItem] {
         guard !query.isEmpty else { return [] }
-        
-        var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items")!
-        
+
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items") else {
+            throw JellyfinError.invalidURL
+        }
+
         var queryItems = [
             URLQueryItem(name: "searchTerm", value: query),
             URLQueryItem(name: "Recursive", value: "true"),
@@ -291,7 +314,7 @@ class JellyfinService: ObservableObject {
             URLQueryItem(name: "SortBy", value: "SortName"),
             URLQueryItem(name: "SortOrder", value: "Ascending")
         ]
-        
+
         // Filtrer par types si spécifié
         if let types = includeItemTypes, !types.isEmpty {
             queryItems.append(URLQueryItem(name: "IncludeItemTypes", value: types.joined(separator: ",")))
@@ -299,10 +322,13 @@ class JellyfinService: ObservableObject {
             // Par défaut : rechercher Movies, Series et Episodes
             queryItems.append(URLQueryItem(name: "IncludeItemTypes", value: "Movie,Series,Episode"))
         }
-        
+
         urlComponents.queryItems = queryItems
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -312,14 +338,19 @@ class JellyfinService: ObservableObject {
     
     /// Récupère les détails d'un média spécifique
     func getItem(itemId: String) async throws -> MediaItem {
-        var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/\(itemId)")!
-        
-        // ⚠️ IMPORTANT: Demander les MediaStreams pour avoir les sous-titres et pistes audio
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Users/\(userId)/Items/\(itemId)") else {
+            throw JellyfinError.invalidURL
+        }
+
+        // IMPORTANT: Demander les MediaStreams pour avoir les sous-titres et pistes audio
         urlComponents.queryItems = [
             URLQueryItem(name: "Fields", value: "Overview,MediaStreams")
         ]
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -345,13 +376,18 @@ class JellyfinService: ObservableObject {
         }
         
         // Récupérer tous les épisodes de la série
-        var urlComponents = URLComponents(string: "\(baseURL)/Shows/\(seriesId)/Episodes")!
+        guard var urlComponents = URLComponents(string: "\(baseURL)/Shows/\(seriesId)/Episodes") else {
+            throw JellyfinError.invalidURL
+        }
         urlComponents.queryItems = [
             URLQueryItem(name: "UserId", value: userId),
             URLQueryItem(name: "Fields", value: "Overview,PrimaryImageAspectRatio,MediaStreams")
         ]
-        
-        var request = URLRequest(url: urlComponents.url!)
+
+        guard let url = urlComponents.url else {
+            throw JellyfinError.invalidURL
+        }
+        var request = URLRequest(url: url)
         request.addAuthorizationHeader(token: accessToken, clientName: clientName, deviceId: deviceId, version: clientVersion)
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -471,7 +507,9 @@ class JellyfinService: ObservableObject {
     
     /// Enregistre les capacités du device auprès du serveur
     func registerDeviceCapabilities() async throws {
-        let url = URL(string: "\(baseURL)/Sessions/Capabilities/Full")!
+        guard let url = URL(string: "\(baseURL)/Sessions/Capabilities/Full") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -498,7 +536,9 @@ class JellyfinService: ObservableObject {
     
     /// Signale le début de la lecture
     func reportPlaybackStart(itemId: String, positionTicks: Int64 = 0, playSessionId: String) async throws {
-        let url = URL(string: "\(baseURL)/Sessions/Playing")!
+        guard let url = URL(string: "\(baseURL)/Sessions/Playing") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -518,7 +558,9 @@ class JellyfinService: ObservableObject {
     
     /// Signale la progression de la lecture
     func reportPlaybackProgress(itemId: String, positionTicks: Int64, isPaused: Bool = false, playSessionId: String) async throws {
-        let url = URL(string: "\(baseURL)/Sessions/Playing/Progress")!
+        guard let url = URL(string: "\(baseURL)/Sessions/Playing/Progress") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -539,7 +581,9 @@ class JellyfinService: ObservableObject {
     
     /// Signale l'arrêt de la lecture
     func reportPlaybackStopped(itemId: String, positionTicks: Int64, playSessionId: String) async throws {
-        let url = URL(string: "\(baseURL)/Sessions/Playing/Stopped")!
+        guard let url = URL(string: "\(baseURL)/Sessions/Playing/Stopped") else {
+            throw JellyfinError.invalidURL
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
