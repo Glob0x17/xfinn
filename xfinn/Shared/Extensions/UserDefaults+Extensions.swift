@@ -4,6 +4,7 @@
 //
 //  Created by Dorian Galiana on 23/11/2025.
 //  Reorganized on 23/12/2025.
+//  Updated 05/01/2026: Migration credentials sensibles vers Keychain
 //
 
 import Foundation
@@ -12,31 +13,29 @@ import Foundation
 
 extension UserDefaults {
     private enum Keys {
-        static let serverURL = "jellyfinServerURL"
-        static let accessToken = "jellyfinAccessToken"
-        static let userId = "jellyfinUserId"
         static let deviceId = "deviceId"
         static let preferredStreamQuality = "preferredStreamQuality"
+        // Note: serverURL, accessToken et userId sont maintenant dans Keychain
     }
-    
-    /// URL du serveur Jellyfin sauvegardé
+
+    /// URL du serveur Jellyfin (stocké dans Keychain)
     var jellyfinServerURL: String? {
-        get { string(forKey: Keys.serverURL) }
-        set { set(newValue, forKey: Keys.serverURL) }
+        get { KeychainService.shared.serverURL }
+        set { KeychainService.shared.serverURL = newValue }
     }
-    
-    /// Token d'accès Jellyfin sauvegardé
+
+    /// Token d'accès Jellyfin (stocké dans Keychain)
     var jellyfinAccessToken: String? {
-        get { string(forKey: Keys.accessToken) }
-        set { set(newValue, forKey: Keys.accessToken) }
+        get { KeychainService.shared.accessToken }
+        set { KeychainService.shared.accessToken = newValue }
     }
-    
-    /// ID de l'utilisateur Jellyfin sauvegardé
+
+    /// ID de l'utilisateur Jellyfin (stocké dans Keychain)
     var jellyfinUserId: String? {
-        get { string(forKey: Keys.userId) }
-        set { set(newValue, forKey: Keys.userId) }
+        get { KeychainService.shared.userId }
+        set { KeychainService.shared.userId = newValue }
     }
-    
+
     /// ID unique de l'appareil (généré automatiquement si inexistant)
     var deviceId: String {
         if let id = string(forKey: Keys.deviceId) {
@@ -46,18 +45,16 @@ extension UserDefaults {
         set(id, forKey: Keys.deviceId)
         return id
     }
-    
+
     /// Qualité de streaming préférée
     var preferredStreamQuality: String? {
         get { string(forKey: Keys.preferredStreamQuality) }
         set { set(newValue, forKey: Keys.preferredStreamQuality) }
     }
-    
+
     /// Efface toutes les données Jellyfin (utile lors de la déconnexion)
     func clearJellyfinData() {
-        removeObject(forKey: Keys.serverURL)
-        removeObject(forKey: Keys.accessToken)
-        removeObject(forKey: Keys.userId)
+        KeychainService.shared.clearAll()
         // Ne pas supprimer deviceId et preferredStreamQuality
     }
 }
