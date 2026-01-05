@@ -39,6 +39,6 @@ class NavigationCoordinator: ObservableObject {
     
     /// Retour à la racine
     func goToRoot() {
-        navigationPath.removeLast(navigationPath.count)
+        navigationPath = NavigationPath()
     }
 }

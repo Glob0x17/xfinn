@@ -314,6 +314,7 @@ struct SearchView: View {
                     }
                 }
             } catch {
+                print("[SearchView] Erreur recherche '\(searchQuery)': \(error.localizedDescription)")
                 await MainActor.run {
                     isSearching = false
                 }

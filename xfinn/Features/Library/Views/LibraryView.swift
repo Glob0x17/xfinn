@@ -532,50 +532,88 @@ struct TVOSLibraryCardButtonStyle: ButtonStyle {
 // MARK: - Image Preloader (Feature 5)
 
 /// Gestionnaire de pré-chargement des images pour optimiser la fluidité
+/// Inclut une limite de mémoire et une politique d'éviction LRU
 @MainActor
 class ImagePreloader: ObservableObject {
-    @Published private var cache: [URL: UIImage] = [:]
+    /// Limite maximale du cache (50 images par défaut)
+    private let maxCacheSize: Int = 50
+
+    /// Cache des images avec ordre d'accès pour LRU
+    private var cache: [URL: UIImage] = [:]
+    private var accessOrder: [URL] = []
     private var loadingTasks: [URL: Task<Void, Never>] = [:]
-    
+
     /// Pré-charge une image depuis une URL
     func preloadImage(from url: URL) async {
         // Vérifier si déjà en cache
         if cache[url] != nil {
+            // Mettre à jour l'ordre d'accès (LRU)
+            updateAccessOrder(for: url)
             return
         }
-        
+
         // Vérifier si déjà en cours de chargement
         if loadingTasks[url] != nil {
             return
         }
-        
+
         // Créer une tâche de chargement
         let task = Task {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 if let image = UIImage(data: data) {
-                    self.cache[url] = image
+                    self.addToCache(url: url, image: image)
                 }
             } catch {
-                // Échec silencieux
+                print("[ImagePreloader] Erreur chargement image: \(error.localizedDescription)")
             }
             self.loadingTasks[url] = nil
         }
-        
+
         loadingTasks[url] = task
         await task.value
     }
-    
+
+    /// Ajoute une image au cache avec éviction LRU si nécessaire
+    private func addToCache(url: URL, image: UIImage) {
+        // Éviction si le cache est plein
+        while cache.count >= maxCacheSize, let oldestURL = accessOrder.first {
+            cache.removeValue(forKey: oldestURL)
+            accessOrder.removeFirst()
+        }
+
+        cache[url] = image
+        accessOrder.append(url)
+    }
+
+    /// Met à jour l'ordre d'accès pour LRU
+    private func updateAccessOrder(for url: URL) {
+        if let index = accessOrder.firstIndex(of: url) {
+            accessOrder.remove(at: index)
+            accessOrder.append(url)
+        }
+    }
+
     /// Récupère une image du cache
     func getCachedImage(for url: URL) -> UIImage? {
-        return cache[url]
+        if let image = cache[url] {
+            updateAccessOrder(for: url)
+            return image
+        }
+        return nil
     }
-    
+
     /// Vide le cache
     func clearCache() {
         cache.removeAll()
+        accessOrder.removeAll()
         loadingTasks.values.forEach { $0.cancel() }
         loadingTasks.removeAll()
+    }
+
+    /// Nombre d'images en cache
+    var cacheCount: Int {
+        cache.count
     }
 }
 
