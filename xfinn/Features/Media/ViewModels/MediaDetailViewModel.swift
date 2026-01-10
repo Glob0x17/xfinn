@@ -159,7 +159,7 @@ final class MediaDetailViewModel: BaseViewModel {
             let updatedItem = try await jellyfinService.getItemDetails(itemId: item.id)
             currentUserData = updatedItem.userData
         } catch {
-            print("[MediaDetailViewModel] Erreur rafraîchissement données utilisateur: \(error.localizedDescription)")
+            // Erreur silencieuse - données utilisateur optionnelles
         }
     }
 
@@ -170,7 +170,7 @@ final class MediaDetailViewModel: BaseViewModel {
         do {
             nextEpisode = try await jellyfinService.getNextEpisode(currentItemId: item.id)
         } catch {
-            print("[MediaDetailViewModel] Erreur chargement prochain épisode: \(error.localizedDescription)")
+            // Prochain épisode optionnel
         }
     }
 
@@ -183,20 +183,24 @@ final class MediaDetailViewModel: BaseViewModel {
         }
     }
 
-    /// Sélectionne automatiquement les sous-titres selon les préférences
+    /// Sélectionne automatiquement les sous-titres selon les préférences utilisateur
+    /// Par défaut, les sous-titres sont désactivés sauf si l'utilisateur a défini une préférence
     func autoSelectSubtitles() {
         guard let preferredLanguage = preferredSubtitleLanguage,
-              hasSubtitles else { return }
+              hasSubtitles else {
+            // Pas de préférence utilisateur = sous-titres désactivés par défaut
+            selectedSubtitleIndex = nil
+            return
+        }
 
-        // Chercher un sous-titre correspondant à la langue préférée
+        // Chercher un sous-titre correspondant à la langue préférée de l'utilisateur
         if let matching = item.subtitleStreams.first(where: {
             $0.language?.lowercased() == preferredLanguage.lowercased() && $0.isForced != true
         }) {
             selectedSubtitleIndex = matching.index
-        } else if let defaultSub = item.subtitleStreams.first(where: {
-            $0.isDefault == true && $0.isForced != true
-        }) {
-            selectedSubtitleIndex = defaultSub.index
+        } else {
+            // Langue préférée non trouvée = sous-titres désactivés
+            selectedSubtitleIndex = nil
         }
     }
 
