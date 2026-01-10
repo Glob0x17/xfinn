@@ -159,6 +159,7 @@ struct MediaDetailView: View {
             titleView(geometry: geometry)
             metadataRow(geometry: geometry)
             synopsisView(geometry: geometry)
+            playbackInfoView(geometry: geometry)
             actionButtons(geometry: geometry)
             progressView(geometry: geometry)
         }
@@ -244,6 +245,67 @@ struct MediaDetailView: View {
         }
     }
 
+    @ViewBuilder
+    private func playbackInfoView(geometry: GeometryProxy) -> some View {
+        // Afficher seulement quand la lecture est active ET que les infos techniques sont disponibles
+        if (playerManager.state == .playing || playerManager.state == .paused),
+           let technicalInfo = playerManager.playbackTechnicalInfo {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Lecture en cours")
+                    .font(.system(size: geometry.size.width * 0.014, weight: .bold))
+                    .foregroundColor(.appTextPrimary)
+
+                HStack(spacing: geometry.size.width * 0.02) {
+                    // Mode de lecture (utilise technicalInfo comme source de vérité)
+                    HStack(spacing: 8) {
+                        Image(systemName: technicalInfo.playMethodIcon)
+                            .font(.system(size: geometry.size.width * 0.012))
+                            .foregroundColor(technicalInfo.playMethod == .transcode ? .orange : .green)
+                        Text(technicalInfo.playMethodDescription)
+                            .font(.system(size: geometry.size.width * 0.011, weight: .medium))
+                            .foregroundColor(.appTextSecondary)
+                    }
+
+                    // Bitrate
+                    if playerManager.currentBitrate > 0 {
+                        HStack(spacing: 8) {
+                            Image(systemName: "speedometer")
+                                .font(.system(size: geometry.size.width * 0.012))
+                                .foregroundColor(.appPrimary)
+                            Text(playerManager.bitrateDescription)
+                                .font(.system(size: geometry.size.width * 0.011, weight: .medium))
+                                .foregroundColor(.appTextSecondary)
+                        }
+                    }
+
+                    // Qualité sélectionnée
+                    HStack(spacing: 8) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: geometry.size.width * 0.012))
+                            .foregroundColor(.appPrimary)
+                        Text(jellyfinService.preferredQuality.displayName)
+                            .font(.system(size: geometry.size.width * 0.011, weight: .medium))
+                            .foregroundColor(.appTextSecondary)
+                    }
+                }
+            }
+            .padding(geometry.size.width * 0.012)
+            .background(
+                technicalInfo.playMethod == .transcode
+                    ? AppTheme.glassBackground.opacity(0.8)
+                    : AppTheme.glassBackground
+            )
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        technicalInfo.playMethod == .transcode ? Color.orange.opacity(0.5) : AppTheme.glassStroke,
+                        lineWidth: 1.5
+                    )
+            )
+        }
+    }
+
     private func actionButtons(geometry: GeometryProxy) -> some View {
         HStack(spacing: geometry.size.width * 0.01) {
             playButton(geometry: geometry)
@@ -277,7 +339,7 @@ struct MediaDetailView: View {
             HStack(spacing: 10) {
                 Image(systemName: "video.badge.waveform")
                     .font(.system(size: geometry.size.width * 0.01))
-                Text(jellyfinService.preferredQuality.rawValue)
+                Text(jellyfinService.preferredQuality.displayName)
                     .font(.system(size: geometry.size.width * 0.011, weight: .medium))
             }
             .foregroundColor(.appTextPrimary)
@@ -363,6 +425,9 @@ struct MediaDetailView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
             }
 
+            // Note: Les sous-titres sont maintenant gérés nativement via HLSSubtitleInjector
+            // et apparaissent dans le menu CC d'AVPlayerViewController
+
             if viewModel.showNextEpisodeOverlay {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
@@ -390,7 +455,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var qualityPickerButtons: some View {
         ForEach(StreamQuality.allCases) { quality in
-            Button(quality.rawValue) {
+            Button(quality.displayName) {
                 jellyfinService.preferredQuality = quality
             }
         }

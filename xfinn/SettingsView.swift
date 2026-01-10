@@ -3,6 +3,7 @@
 //  xfinn
 //
 //  Created by Dorian Galiana on 23/11/2025.
+//  Updated on 10/01/2026: Enhanced quality settings with all bitrate options
 //
 
 import SwiftUI
@@ -10,9 +11,9 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var jellyfinService: JellyfinService
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var showLogoutConfirmation = false
-    
+
     var body: some View {
         NavigationStack {
             List {
@@ -23,7 +24,7 @@ struct SettingsView: View {
                         LabeledContent("ID", value: user.id)
                     }
                 }
-                
+
                 // Section Serveur
                 Section("Serveur") {
                     if let serverInfo = jellyfinService.serverInfo {
@@ -31,35 +32,47 @@ struct SettingsView: View {
                         LabeledContent("Version", value: serverInfo.version)
                         LabeledContent("Système", value: serverInfo.operatingSystem)
                     }
-                    
+
                     LabeledContent("URL", value: jellyfinService.serverURL)
                 }
-                
+
                 // Section Application
                 Section("Application") {
                     LabeledContent("Version", value: "1.0.0")
                     LabeledContent("Build", value: "1")
                     LabeledContent("Plateforme", value: "tvOS")
                 }
-                
+
                 // Section Streaming
                 Section {
                     Picker("Qualité de streaming", selection: $jellyfinService.preferredQuality) {
                         ForEach(StreamQuality.allCases) { quality in
-                            Text(quality.rawValue).tag(quality)
+                            HStack {
+                                Text(quality.displayName)
+                                Spacer()
+                                Text(quality.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .tag(quality)
                         }
                     }
-                    
+                    .pickerStyle(.navigationLink)
+
                     // Afficher une description de la qualité sélectionnée
-                    Text(jellyfinService.preferredQuality.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Qualité sélectionnée: \(jellyfinService.preferredQuality.displayName)")
+                            .font(.subheadline)
+                        Text(jellyfinService.preferredQuality.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 } header: {
                     Text("Streaming")
                 } footer: {
-                    Text("La qualité Auto offre la meilleure qualité disponible (1080p à 15 Mbps). Choisissez une qualité inférieure si vous avez des problèmes de réseau.")
+                    Text("Le mode Auto teste automatiquement votre connexion. Pour forcer le transcodage, choisissez un bitrate inférieur à celui de votre fichier source.")
                 }
-                
+
                 // Section Actions
                 Section {
                     Button(role: .destructive) {

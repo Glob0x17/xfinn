@@ -55,6 +55,15 @@ final class PlayerManager: ObservableObject {
     @Published private(set) var duration: TimeInterval = 0
     @Published var selectedSubtitleIndex: Int?
 
+    /// Indique si le contenu est transcodé ou en lecture directe
+    @Published private(set) var isTranscoding: Bool = false
+
+    /// Bitrate utilisé pour la lecture (en bps)
+    @Published private(set) var currentBitrate: Int = 0
+
+    /// Informations techniques de lecture
+    @Published private(set) var playbackTechnicalInfo: PlaybackTechnicalInfo?
+
     // MARK: - Public Properties
 
     var callbacks = PlayerManagerCallbacks()
@@ -66,6 +75,29 @@ final class PlayerManager: ObservableObject {
     var progress: Double {
         guard duration > 0 else { return 0 }
         return currentTime / duration
+    }
+
+    /// Description du mode de lecture (pour l'affichage)
+    var playbackModeDescription: String {
+        // Utiliser playbackTechnicalInfo comme source de vérité
+        if let info = playbackTechnicalInfo {
+            return info.playMethodDescription
+        } else {
+            return isTranscoding ? "Transcodage" : "Lecture directe"
+        }
+    }
+
+    /// Description du bitrate formatée
+    var bitrateDescription: String {
+        if currentBitrate >= 1_000_000 {
+            return "\(currentBitrate / 1_000_000) Mbps"
+        } else if currentBitrate >= 1000 {
+            return "\(currentBitrate / 1000) Kbps"
+        } else if currentBitrate > 0 {
+            return "\(currentBitrate) bps"
+        } else {
+            return "N/A"
+        }
     }
 
     // MARK: - Private Properties
@@ -120,21 +152,9 @@ final class PlayerManager: ObservableObject {
         state = .loading
 
         // Enregistrer les capabilities du device
-        do {
-            try await jellyfinService.registerDeviceCapabilities()
-        } catch {
-            print("[PlayerManager] Erreur enregistrement capabilities: \(error.localizedDescription)")
-        }
-
-        // Debug: Afficher les sous-titres disponibles selon Jellyfin
-        print("[PlayerManager] 🎬 Sous-titres Jellyfin (\(item.subtitleStreams.count) piste(s)):")
-        for sub in item.subtitleStreams {
-            print("[PlayerManager]   - Index \(sub.index): \(sub.displayName) (langue: \(sub.language ?? "?"), codec: \(sub.codec ?? "?"))")
-        }
+        try? await jellyfinService.registerDeviceCapabilities()
 
         // Obtenir les informations de lecture via PlaybackInfo API
-        // Cette méthode envoie un DeviceProfile au serveur qui inclut les sous-titres
-        // dans le manifest HLS si transcoding est nécessaire
         do {
             let playbackResult = try await jellyfinService.getPlaybackInfo(
                 itemId: item.id,
@@ -142,13 +162,16 @@ final class PlayerManager: ObservableObject {
             )
 
             self.playSessionId = playbackResult.playSessionId
+            self.isTranscoding = playbackResult.isTranscoding
+            self.currentBitrate = playbackResult.mediaSource.bitrate ?? quality.maxBitrate ?? 0
 
-            print("[PlayerManager] Démarrage lecture - Item: \(item.id), Qualité: \(quality)")
-            print("[PlayerManager] Mode: \(playbackResult.isTranscoding ? "Transcoding (sous-titres dans manifest)" : "Direct")")
-            print("[PlayerManager] URL: \(playbackResult.streamURL.absoluteString.prefix(200))...")
+            // Créer les informations techniques de lecture
+            self.playbackTechnicalInfo = PlaybackTechnicalInfo.from(
+                playbackResult: playbackResult,
+                requestedBitrate: quality.maxBitrate
+            )
 
             // Créer et configurer le player
-            // Les sous-titres sont gérés nativement via le manifest HLS du serveur
             await setupPlayer(
                 url: playbackResult.streamURL,
                 item: item,
@@ -157,7 +180,6 @@ final class PlayerManager: ObservableObject {
             )
 
         } catch {
-            print("[PlayerManager] Erreur PlaybackInfo: \(error.localizedDescription)")
             state = .failed("Impossible d'obtenir les informations de lecture: \(error.localizedDescription)")
         }
     }
@@ -221,7 +243,7 @@ final class PlayerManager: ObservableObject {
                     playSessionId: playSessionId
                 )
             } catch {
-                print("[PlayerManager] Erreur report stop: \(error.localizedDescription)")
+                // Erreur silencieuse - le reporting n'est pas critique
             }
         }
 
@@ -267,6 +289,9 @@ final class PlayerManager: ObservableObject {
 
         player = nil
         currentTime = 0
+        isTranscoding = false
+        currentBitrate = 0
+        playbackTechnicalInfo = nil
     }
 
     // MARK: - Private Methods
@@ -277,12 +302,8 @@ final class PlayerManager: ObservableObject {
         resumePosition: TimeInterval?,
         jellyfinService: JellyfinService
     ) async {
-        // Créer l'asset directement avec l'URL
-        // Les sous-titres sont inclus dans le manifest HLS par le serveur Jellyfin
-        // grâce au DeviceProfile avec enableSubtitlesInManifest: true
+        // Créer l'asset avec l'URL (sous-titres inclus dans le manifest HLS)
         let asset = AVURLAsset(url: url)
-
-        print("[PlayerManager] 🎬 Création asset AVPlayer (sous-titres gérés par serveur via manifest HLS)")
 
         do {
             // Vérifier que l'asset est jouable
@@ -318,8 +339,11 @@ final class PlayerManager: ObservableObject {
             controller.allowsPictureInPicturePlayback = true
 
             #if os(tvOS)
-            // Les sous-titres sont gérés nativement par le serveur Jellyfin
-            // Le menu CC natif affichera toutes les pistes de sous-titres incluses dans le manifest HLS
+            // Ajouter le panneau d'informations techniques
+            if let technicalInfo = self.playbackTechnicalInfo {
+                let technicalInfoVC = TechnicalInfoViewController(info: technicalInfo)
+                controller.customInfoViewControllers = [technicalInfoVC]
+            }
             #endif
 
             self.playerViewController = controller
@@ -433,7 +457,7 @@ final class PlayerManager: ObservableObject {
                 playSessionId: playSessionId
             )
         } catch {
-            print("[PlayerManager] Erreur report start: \(error.localizedDescription)")
+            // Erreur silencieuse - le reporting n'est pas critique
         }
     }
 
@@ -495,7 +519,7 @@ final class PlayerManager: ObservableObject {
                         playerItem.externalMetadata = updatedMetadata
                     }
                 } catch {
-                    print("[PlayerManager] Erreur chargement artwork: \(error.localizedDescription)")
+                    // Artwork optionnel - erreur ignorée
                 }
             }
         }

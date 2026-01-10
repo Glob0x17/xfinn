@@ -60,15 +60,7 @@ final class PlaybackService {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(playbackInfoRequest)
 
-        print("[PlaybackService] POST PlaybackInfo pour \(itemId)")
-
         let (data, _) = try await URLSession.shared.data(for: request)
-
-        // Debug: Log de la réponse
-        if let jsonString = String(data: data, encoding: .utf8) {
-            print("[PlaybackService] Réponse PlaybackInfo: \(jsonString.prefix(500))...")
-        }
-
         let response = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
 
         guard let playSessionId = response.playSessionId else {
@@ -84,14 +76,12 @@ final class PlaybackService {
         let isTranscoding: Bool
 
         if let transcodingUrl = mediaSource.transcodingUrl {
-            // Transcoding - L'URL inclut les sous-titres dans le manifest HLS
+            // Transcoding - sous-titres inclus dans le manifest HLS
             guard let fullURL = URL(string: "\(authService.baseURL)\(transcodingUrl)") else {
                 throw JellyfinError.invalidURL
             }
             streamURL = fullURL
             isTranscoding = true
-            print("[PlaybackService] ✅ Mode transcoding avec sous-titres dans manifest")
-            print("[PlaybackService] URL: \(streamURL.absoluteString.prefix(200))...")
         } else if let directStreamUrl = mediaSource.directStreamUrl {
             // Direct Stream
             guard let fullURL = URL(string: "\(authService.baseURL)\(directStreamUrl)") else {
@@ -99,7 +89,6 @@ final class PlaybackService {
             }
             streamURL = fullURL
             isTranscoding = false
-            print("[PlaybackService] ▶️ Mode Direct Stream")
         } else if mediaSource.supportsDirectPlay == true, let path = mediaSource.path {
             // Direct Play
             guard let fullURL = URL(string: path) else {
@@ -107,7 +96,6 @@ final class PlaybackService {
             }
             streamURL = fullURL
             isTranscoding = false
-            print("[PlaybackService] ▶️ Mode Direct Play")
         } else {
             throw JellyfinError.responseError("Aucune URL de streaming disponible")
         }

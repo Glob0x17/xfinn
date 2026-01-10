@@ -22,7 +22,7 @@ class JellyfinService: ObservableObject {
 
     // MARK: - Services
 
-    private let authService = AuthService()
+    let authService = AuthService()
     private lazy var mediaService = MediaService(authService: authService)
     private lazy var playbackService = PlaybackService(authService: authService)
 
@@ -43,10 +43,8 @@ class JellyfinService: ObservableObject {
     // MARK: - Initialization
 
     init() {
-        if let savedQuality = UserDefaults.standard.string(forKey: "preferredStreamQuality"),
-           let quality = StreamQuality(rawValue: savedQuality) {
-            self._preferredQuality = Published(initialValue: quality)
-        }
+        // Charger la qualité préférée depuis UserDefaults
+        self._preferredQuality = Published(initialValue: StreamQuality.load())
 
         loadSavedCredentials()
         setupQualityObserver()
@@ -56,7 +54,7 @@ class JellyfinService: ObservableObject {
         qualityCancellable = $preferredQuality
             .dropFirst()
             .sink { newQuality in
-                UserDefaults.standard.set(newQuality.rawValue, forKey: "preferredStreamQuality")
+                newQuality.save()
             }
     }
 
