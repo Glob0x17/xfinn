@@ -75,6 +75,7 @@ final class PlayerManager: ObservableObject {
     private var itemId: String = ""
     private var jellyfinService: JellyfinService?
     private var subtitleStreams: [MediaStream] = []
+    private var currentItem: MediaItem?
     private var hasConfiguredSubtitleCallback = false
     private var isStoppingPlayback = false
 
@@ -111,10 +112,10 @@ final class PlayerManager: ObservableObject {
 
         self.jellyfinService = jellyfinService
         self.itemId = item.id
+        self.currentItem = item
         self.selectedSubtitleIndex = subtitleIndex
         self.subtitleStreams = item.subtitleStreams
         self.duration = item.duration ?? 0
-        self.playSessionId = UUID().uuidString
 
         state = .loading
 
@@ -125,24 +126,40 @@ final class PlayerManager: ObservableObject {
             print("[PlayerManager] Erreur enregistrement capabilities: \(error.localizedDescription)")
         }
 
-        // Obtenir l'URL de streaming
-        guard let streamURL = jellyfinService.getStreamURL(
-            itemId: item.id,
-            quality: quality,
-            playSessionId: playSessionId,
-            subtitleStreamIndex: subtitleIndex
-        ) else {
-            state = .failed("Impossible d'obtenir l'URL de streaming")
-            return
+        // Debug: Afficher les sous-titres disponibles selon Jellyfin
+        print("[PlayerManager] 🎬 Sous-titres Jellyfin (\(item.subtitleStreams.count) piste(s)):")
+        for sub in item.subtitleStreams {
+            print("[PlayerManager]   - Index \(sub.index): \(sub.displayName) (langue: \(sub.language ?? "?"), codec: \(sub.codec ?? "?"))")
         }
 
-        // Créer et configurer le player
-        await setupPlayer(
-            url: streamURL,
-            item: item,
-            resumePosition: resumePosition,
-            jellyfinService: jellyfinService
-        )
+        // Obtenir les informations de lecture via PlaybackInfo API
+        // Cette méthode envoie un DeviceProfile au serveur qui inclut les sous-titres
+        // dans le manifest HLS si transcoding est nécessaire
+        do {
+            let playbackResult = try await jellyfinService.getPlaybackInfo(
+                itemId: item.id,
+                quality: quality
+            )
+
+            self.playSessionId = playbackResult.playSessionId
+
+            print("[PlayerManager] Démarrage lecture - Item: \(item.id), Qualité: \(quality)")
+            print("[PlayerManager] Mode: \(playbackResult.isTranscoding ? "Transcoding (sous-titres dans manifest)" : "Direct")")
+            print("[PlayerManager] URL: \(playbackResult.streamURL.absoluteString.prefix(200))...")
+
+            // Créer et configurer le player
+            // Les sous-titres sont gérés nativement via le manifest HLS du serveur
+            await setupPlayer(
+                url: playbackResult.streamURL,
+                item: item,
+                resumePosition: resumePosition,
+                jellyfinService: jellyfinService
+            )
+
+        } catch {
+            print("[PlayerManager] Erreur PlaybackInfo: \(error.localizedDescription)")
+            state = .failed("Impossible d'obtenir les informations de lecture: \(error.localizedDescription)")
+        }
     }
 
     /// Met en pause la lecture
@@ -260,7 +277,12 @@ final class PlayerManager: ObservableObject {
         resumePosition: TimeInterval?,
         jellyfinService: JellyfinService
     ) async {
+        // Créer l'asset directement avec l'URL
+        // Les sous-titres sont inclus dans le manifest HLS par le serveur Jellyfin
+        // grâce au DeviceProfile avec enableSubtitlesInManifest: true
         let asset = AVURLAsset(url: url)
+
+        print("[PlayerManager] 🎬 Création asset AVPlayer (sous-titres gérés par serveur via manifest HLS)")
 
         do {
             // Vérifier que l'asset est jouable
@@ -296,14 +318,8 @@ final class PlayerManager: ObservableObject {
             controller.allowsPictureInPicturePlayback = true
 
             #if os(tvOS)
-            // Désactiver les sous-titres natifs (on utilise le burn-in)
-            if let legibleGroup = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
-                playerItem.select(nil, in: legibleGroup)
-            }
-            newPlayer.appliesMediaSelectionCriteriaAutomatically = false
-
-            // Configurer le menu des sous-titres
-            configureSubtitleMenu(for: controller, item: item)
+            // Les sous-titres sont gérés nativement par le serveur Jellyfin
+            // Le menu CC natif affichera toutes les pistes de sous-titres incluses dans le manifest HLS
             #endif
 
             self.playerViewController = controller
@@ -340,9 +356,9 @@ final class PlayerManager: ObservableObject {
                 await MainActor.run {
                     switch status {
                     case .readyToPlay:
-                        if self.selectedSubtitleIndex != nil {
-                            self.enableSubtitlesInPlayer(playerItem: playerItem)
-                        }
+                        // Les sous-titres sont gérés nativement par le serveur via le manifest HLS
+                        // Ils apparaissent automatiquement dans le menu CC d'AVPlayerViewController
+                        break
                     case .failed:
                         if let error = playerItem.error {
                             self.state = .failed(error.localizedDescription)
@@ -360,6 +376,7 @@ final class PlayerManager: ObservableObject {
     private func setupProgressObserver() {
         guard let player = player else { return }
 
+        // Observateur principal pour la progression (toutes les 5 secondes)
         playbackObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: progressReportInterval, preferredTimescale: 1),
             queue: .main
@@ -486,103 +503,7 @@ final class PlayerManager: ObservableObject {
 
     // MARK: - Subtitles
 
-    #if os(tvOS)
-    private func configureSubtitleMenu(for controller: AVPlayerViewController, item: MediaItem) {
-        guard !item.subtitleStreams.isEmpty else { return }
-
-        var subtitleActions: [UIAction] = []
-
-        // Option "Aucun"
-        let noneAction = UIAction(
-            title: "Aucun",
-            image: selectedSubtitleIndex == nil ? UIImage(systemName: "checkmark") : nil,
-            state: selectedSubtitleIndex == nil ? .on : .off
-        ) { [weak self] _ in
-            self?.handleSubtitleChange(nil)
-        }
-        subtitleActions.append(noneAction)
-
-        // Trier : non-forcés d'abord
-        let sortedStreams = item.subtitleStreams.sorted { s1, s2 in
-            if s1.isDefault != s2.isDefault {
-                return s1.isDefault == true
-            }
-            return s1.displayName < s2.displayName
-        }
-
-        for subtitle in sortedStreams {
-            let isSelected = selectedSubtitleIndex == subtitle.index
-            let subtitleIndex = subtitle.index
-
-            let action = UIAction(
-                title: subtitle.displayName,
-                image: isSelected ? UIImage(systemName: "checkmark") : nil,
-                state: isSelected ? .on : .off
-            ) { [weak self] _ in
-                self?.handleSubtitleChange(subtitleIndex)
-            }
-            subtitleActions.append(action)
-        }
-
-        let subtitleMenu = UIMenu(
-            title: "Changer de sous-titres",
-            image: UIImage(systemName: "text.bubble"),
-            children: subtitleActions
-        )
-
-        controller.transportBarCustomMenuItems = [subtitleMenu]
-    }
-    #endif
-
-    private func handleSubtitleChange(_ newIndex: Int?) {
-        selectedSubtitleIndex = newIndex
-
-        // Sauvegarder la préférence
-        if let index = newIndex,
-           let subtitle = subtitleStreams.first(where: { $0.index == index }),
-           let language = subtitle.language {
-            UserDefaults.standard.set(language, forKey: "preferredSubtitleLanguage")
-        } else if newIndex == nil {
-            UserDefaults.standard.removeObject(forKey: "preferredSubtitleLanguage")
-        }
-
-        callbacks.onSubtitleChange?(newIndex)
-    }
-
-    private func enableSubtitlesInPlayer(playerItem: AVPlayerItem) {
-        guard let legibleGroup = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) else {
-            return
-        }
-
-        guard let selectedIndex = selectedSubtitleIndex,
-              let selectedSubtitle = subtitleStreams.first(where: { $0.index == selectedIndex }) else {
-            playerItem.select(nil, in: legibleGroup)
-            return
-        }
-
-        // Chercher l'option correspondante
-        var matchingOption: AVMediaSelectionOption?
-
-        if let language = selectedSubtitle.language?.lowercased() {
-            matchingOption = legibleGroup.options.first { option in
-                if let tag = option.extendedLanguageTag?.lowercased() {
-                    return tag.hasPrefix(language) || tag.contains(language)
-                }
-                if let locale = option.locale {
-                    return locale.languageCode?.lowercased() == language
-                }
-                return false
-            }
-        }
-
-        if matchingOption == nil {
-            matchingOption = legibleGroup.options.first { option in
-                option.displayName.lowercased().contains(selectedSubtitle.displayName.lowercased())
-            }
-        }
-
-        if let option = matchingOption {
-            playerItem.select(option, in: legibleGroup)
-        }
-    }
+    // Les sous-titres sont gérés nativement par le serveur Jellyfin
+    // via le DeviceProfile avec enableSubtitlesInManifest: true
+    // Le menu CC natif d'AVPlayerViewController affiche toutes les pistes
 }

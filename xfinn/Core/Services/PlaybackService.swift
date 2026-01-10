@@ -8,6 +8,14 @@
 
 import Foundation
 
+/// Résultat de la requête PlaybackInfo
+struct PlaybackResult {
+    let streamURL: URL
+    let playSessionId: String
+    let mediaSource: MediaSourceInfo
+    let isTranscoding: Bool
+}
+
 /// Service de gestion de la lecture Jellyfin
 final class PlaybackService {
 
@@ -21,9 +29,101 @@ final class PlaybackService {
         self.authService = authService
     }
 
-    // MARK: - Streaming URLs
+    // MARK: - PlaybackInfo API (Recommended)
+
+    /// Obtient les informations de lecture via l'API PlaybackInfo avec DeviceProfile
+    /// Cette méthode permet au serveur Jellyfin de décider du meilleur mode de lecture
+    /// et d'inclure les sous-titres dans le manifest HLS si transcoding est nécessaire
+    func getPlaybackInfo(
+        itemId: String,
+        quality: StreamQuality = .auto
+    ) async throws -> PlaybackResult {
+        guard let url = URL(string: "\(authService.baseURL)/Items/\(itemId)/PlaybackInfo") else {
+            throw JellyfinError.invalidURL
+        }
+
+        // Créer le device profile avec support des sous-titres
+        let maxBitrate = quality.maxBitrate ?? 20_000_000
+        let deviceProfile = DeviceProfile.tvOSProfile(maxBitrate: maxBitrate)
+
+        // Créer la requête PlaybackInfo
+        let playbackInfoRequest = PlaybackInfoRequest(
+            userId: authService.userId,
+            maxStreamingBitrate: maxBitrate,
+            mediaSourceId: itemId,
+            deviceProfile: deviceProfile,
+            autoOpenLiveStream: true
+        )
+
+        var request = authService.authenticatedRequest(for: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(playbackInfoRequest)
+
+        print("[PlaybackService] POST PlaybackInfo pour \(itemId)")
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+
+        // Debug: Log de la réponse
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("[PlaybackService] Réponse PlaybackInfo: \(jsonString.prefix(500))...")
+        }
+
+        let response = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
+
+        guard let playSessionId = response.playSessionId else {
+            throw JellyfinError.responseError("Pas de PlaySessionId dans la réponse")
+        }
+
+        guard let mediaSource = response.mediaSources?.first else {
+            throw JellyfinError.responseError("Pas de MediaSource dans la réponse")
+        }
+
+        // Déterminer l'URL de streaming
+        let streamURL: URL
+        let isTranscoding: Bool
+
+        if let transcodingUrl = mediaSource.transcodingUrl {
+            // Transcoding - L'URL inclut les sous-titres dans le manifest HLS
+            guard let fullURL = URL(string: "\(authService.baseURL)\(transcodingUrl)") else {
+                throw JellyfinError.invalidURL
+            }
+            streamURL = fullURL
+            isTranscoding = true
+            print("[PlaybackService] ✅ Mode transcoding avec sous-titres dans manifest")
+            print("[PlaybackService] URL: \(streamURL.absoluteString.prefix(200))...")
+        } else if let directStreamUrl = mediaSource.directStreamUrl {
+            // Direct Stream
+            guard let fullURL = URL(string: "\(authService.baseURL)\(directStreamUrl)") else {
+                throw JellyfinError.invalidURL
+            }
+            streamURL = fullURL
+            isTranscoding = false
+            print("[PlaybackService] ▶️ Mode Direct Stream")
+        } else if mediaSource.supportsDirectPlay == true, let path = mediaSource.path {
+            // Direct Play
+            guard let fullURL = URL(string: path) else {
+                throw JellyfinError.invalidURL
+            }
+            streamURL = fullURL
+            isTranscoding = false
+            print("[PlaybackService] ▶️ Mode Direct Play")
+        } else {
+            throw JellyfinError.responseError("Aucune URL de streaming disponible")
+        }
+
+        return PlaybackResult(
+            streamURL: streamURL,
+            playSessionId: playSessionId,
+            mediaSource: mediaSource,
+            isTranscoding: isTranscoding
+        )
+    }
+
+    // MARK: - Legacy Streaming URLs (Fallback)
 
     /// Génère l'URL de streaming HLS pour un média (compatible tvOS)
+    /// Note: Préférer getPlaybackInfo() qui gère mieux les sous-titres
     func getStreamURL(
         itemId: String,
         quality: StreamQuality = .auto,
@@ -60,15 +160,10 @@ final class PlaybackService {
             queryItems.append(URLQueryItem(name: "StartTimeTicks", value: "\(startPositionTicks)"))
         }
 
-        // Configuration des sous-titres
-        if let subtitleIndex = subtitleStreamIndex {
-            queryItems.append(URLQueryItem(name: "SubtitleStreamIndex", value: "\(subtitleIndex)"))
-            queryItems.append(URLQueryItem(name: "SubtitleMethod", value: "Encode"))
-            queryItems.append(URLQueryItem(name: "SubtitleCodec", value: ""))
-        } else {
-            queryItems.append(URLQueryItem(name: "SubtitleStreamIndex", value: "-1"))
-            queryItems.append(URLQueryItem(name: "SubtitleCodec", value: ""))
-        }
+        // Sous-titres : On ne passe PAS de SubtitleStreamIndex
+        // Jellyfin inclut automatiquement TOUTES les pistes de sous-titres dans le manifest HLS
+        // AVPlayer les détecte via AVMediaSelectionGroup et permet la sélection native
+        // Note: Le paramètre subtitleStreamIndex est gardé pour compatibilité mais ignoré
 
         // Paramètres supplémentaires pour tvOS
         queryItems.append(contentsOf: [

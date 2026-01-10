@@ -36,6 +36,10 @@ class JellyfinService: ObservableObject {
         authService.serverURL
     }
 
+    var accessToken: String {
+        authService.accessToken
+    }
+
     // MARK: - Initialization
 
     init() {
@@ -154,6 +158,13 @@ class JellyfinService: ObservableObject {
 
     // MARK: - Streaming (delegated to PlaybackService)
 
+    /// Obtient les informations de lecture via l'API PlaybackInfo avec DeviceProfile
+    /// C'est la méthode recommandée car elle gère les sous-titres nativement via HLS
+    func getPlaybackInfo(itemId: String, quality: StreamQuality = .auto) async throws -> PlaybackResult {
+        try await playbackService.getPlaybackInfo(itemId: itemId, quality: quality)
+    }
+
+    /// Legacy: Génère directement l'URL de streaming (ne gère pas les sous-titres natifs)
     func getStreamURL(itemId: String, quality: StreamQuality = .auto, startPositionTicks: Int64 = 0, playSessionId: String, subtitleStreamIndex: Int? = nil) -> URL? {
         playbackService.getStreamURL(itemId: itemId, quality: quality, startPositionTicks: startPositionTicks, playSessionId: playSessionId, subtitleStreamIndex: subtitleStreamIndex)
     }
@@ -202,6 +213,7 @@ enum JellyfinError: LocalizedError {
     case networkError(Error)
     case decodingError(Error)
     case serverError(statusCode: Int)
+    case responseError(String)
 
     var errorDescription: String? {
         switch self {
@@ -217,6 +229,8 @@ enum JellyfinError: LocalizedError {
             return "Erreur de décodage des données : \(error.localizedDescription)"
         case .serverError(let statusCode):
             return "Erreur serveur (code \(statusCode))"
+        case .responseError(let message):
+            return "Erreur de réponse : \(message)"
         }
     }
 }
