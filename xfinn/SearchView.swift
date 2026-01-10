@@ -9,28 +9,13 @@ import SwiftUI
 
 /// Vue de recherche moderne avec design Liquid Glass
 struct SearchView: View {
+    @StateObject private var viewModel: SearchViewModel
     @ObservedObject var jellyfinService: JellyfinService
     @Environment(\.dismiss) private var dismiss
-    
-    @State private var searchQuery = ""
-    @State private var searchResults: [MediaItem] = []
-    @State private var isSearching = false
-    @State private var selectedFilter: SearchFilter = .all
-    
-    enum SearchFilter: String, CaseIterable {
-        case all = "Tout"
-        case movies = "Films"
-        case series = "Séries"
-        case episodes = "Épisodes"
-        
-        var icon: String {
-            switch self {
-            case .all: return "square.grid.2x2"
-            case .movies: return "film"
-            case .series: return "tv"
-            case .episodes: return "list.bullet"
-            }
-        }
+
+    init(jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: SearchViewModel(jellyfinService: jellyfinService))
     }
     
     var body: some View {
@@ -51,11 +36,11 @@ struct SearchView: View {
                     .padding(.horizontal, 60)
                 
                 // Résultats
-                if isSearching {
+                if viewModel.isSearching {
                     loadingView
-                } else if searchQuery.isEmpty {
+                } else if viewModel.isSearchEmpty {
                     emptyStateView
-                } else if searchResults.isEmpty {
+                } else if viewModel.hasNoResults {
                     noResultsView
                 } else {
                     resultsGrid
@@ -91,19 +76,20 @@ struct SearchView: View {
                     .font(.system(size: 24))
                     .foregroundColor(.appTextSecondary)
                 
-                TextField("Rechercher films, séries, épisodes...", text: $searchQuery)
+                TextField("Rechercher films, séries, épisodes...", text: $viewModel.searchQuery)
                     .font(.system(size: 26, weight: .medium))
                     .foregroundColor(.appTextPrimary)
                     .textFieldStyle(.plain)
                     .submitLabel(.search)
                     .onSubmit {
-                        performSearch()
+                        Task {
+                            await viewModel.performSearch()
+                        }
                     }
-                
-                if !searchQuery.isEmpty {
+
+                if !viewModel.isSearchEmpty {
                     Button(action: {
-                        searchQuery = ""
-                        searchResults = []
+                        viewModel.clearSearch()
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 22))
@@ -133,14 +119,9 @@ struct SearchView: View {
                 ForEach(SearchFilter.allCases, id: \.self) { filter in
                     FilterPill(
                         filter: filter,
-                        isSelected: selectedFilter == filter,
+                        isSelected: viewModel.selectedFilter == filter,
                         action: {
-                            withAnimation(AppTheme.standardAnimation) {
-                                selectedFilter = filter
-                                if !searchQuery.isEmpty {
-                                    performSearch()
-                                }
-                            }
+                            viewModel.updateFilter(filter)
                         }
                     )
                 }
@@ -254,7 +235,7 @@ struct SearchView: View {
                 ],
                 spacing: 30
             ) {
-                ForEach(filteredResults) { item in
+                ForEach(viewModel.filteredResults) { item in
                     NavigationLink {
                         if item.type == "Series" {
                             SeriesDetailView(series: item, jellyfinService: jellyfinService)
@@ -276,57 +257,12 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - Filtered Results
-    
-    private var filteredResults: [MediaItem] {
-        guard selectedFilter != .all else { return searchResults }
-        
-        return searchResults.filter { item in
-            switch selectedFilter {
-            case .all:
-                return true
-            case .movies:
-                return item.type == "Movie"
-            case .series:
-                return item.type == "Series"
-            case .episodes:
-                return item.type == "Episode"
-            }
-        }
-    }
-    
-    // MARK: - Search Action
-    
-    private func performSearch() {
-        guard !searchQuery.isEmpty else { return }
-        
-        isSearching = true
-        
-        Task {
-            do {
-                // Recherche via l'API Jellyfin
-                let results = try await jellyfinService.search(query: searchQuery)
-                
-                await MainActor.run {
-                    withAnimation(AppTheme.standardAnimation) {
-                        searchResults = results
-                        isSearching = false
-                    }
-                }
-            } catch {
-                print("[SearchView] Erreur recherche '\(searchQuery)': \(error.localizedDescription)")
-                await MainActor.run {
-                    isSearching = false
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Filter Pill
 
 struct FilterPill: View {
-    let filter: SearchView.SearchFilter
+    let filter: SearchFilter
     let isSelected: Bool
     let action: () -> Void
     

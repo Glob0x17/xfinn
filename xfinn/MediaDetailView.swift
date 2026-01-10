@@ -10,7 +10,7 @@ import SwiftUI
 import AVKit
 
 struct MediaDetailView: View {
-    let item: MediaItem
+    @StateObject private var viewModel: MediaDetailViewModel
     @ObservedObject var jellyfinService: JellyfinService
     @EnvironmentObject private var navigationCoordinator: NavigationCoordinator
 
@@ -25,22 +25,12 @@ struct MediaDetailView: View {
     @State private var showSubtitlePicker = false
     @State private var showResumeAlert = false
 
-    // MARK: - Subtitle State
+    // MARK: - Initialization
 
-    @State private var selectedSubtitleIndex: Int?
-    @State private var preferredSubtitleLanguage: String?
-
-    // MARK: - User Data
-
-    @State private var currentUserData: UserData?
-
-    // MARK: - Next Episode (Autoplay)
-
-    @State private var nextEpisode: MediaItem?
-    @State private var showNextEpisodeOverlay = false
-    @State private var nextEpisodeCountdown = 10
-    @State private var shouldAutoPlayNext = true
-    @State private var countdownTask: Task<Void, Never>?
+    init(item: MediaItem, jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: MediaDetailViewModel(item: item, jellyfinService: jellyfinService))
+    }
 
     // MARK: - Body
 
@@ -61,7 +51,10 @@ struct MediaDetailView: View {
         .onChange(of: playerManager.state) { _, newState in
             handlePlayerStateChange(newState)
         }
-        .onAppear(perform: handleOnAppear)
+        .task {
+            await viewModel.loadInitialData()
+            setupAutoPlayIfNeeded()
+        }
         .onDisappear(perform: handleOnDisappear)
         .alert("Qualité de streaming", isPresented: $showQualityPicker) {
             qualityPickerButtons
@@ -88,7 +81,7 @@ struct MediaDetailView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            if let imageUrl = URL(string: jellyfinService.getImageURL(itemId: item.id, imageType: "Backdrop", maxWidth: 1920)) {
+            if let imageUrl = URL(string: jellyfinService.getImageURL(itemId: viewModel.item.id, imageType: "Backdrop", maxWidth: 1920)) {
                 AsyncImage(url: imageUrl) { image in
                     image
                         .resizable()
@@ -112,7 +105,7 @@ struct MediaDetailView: View {
                 VStack(alignment: .leading, spacing: geometry.size.height * 0.03) {
                     headerSection(geometry: geometry)
 
-                    if let seriesName = item.seriesName {
+                    if let seriesName = viewModel.item.seriesName {
                         seriesInfoSection(seriesName: seriesName, geometry: geometry)
                     }
                 }
@@ -133,7 +126,7 @@ struct MediaDetailView: View {
     }
 
     private func posterView(geometry: GeometryProxy) -> some View {
-        AsyncImage(url: URL(string: jellyfinService.getImageURL(itemId: item.id, imageType: "Primary", maxWidth: 400))) { phase in
+        AsyncImage(url: URL(string: jellyfinService.getImageURL(itemId: viewModel.item.id, imageType: "Primary", maxWidth: 400))) { phase in
             switch phase {
             case .success(let image):
                 image
@@ -175,7 +168,7 @@ struct MediaDetailView: View {
         HStack(spacing: 10) {
             Image(systemName: typeIcon)
                 .font(.system(size: geometry.size.width * 0.009))
-            Text(item.type == "Movie" ? "Film" : "Épisode")
+            Text(viewModel.item.type == "Movie" ? "Film" : "Épisode")
                 .font(.system(size: geometry.size.width * 0.01, weight: .semibold))
         }
         .foregroundColor(.appPrimary)
@@ -189,7 +182,7 @@ struct MediaDetailView: View {
     }
 
     private func titleView(geometry: GeometryProxy) -> some View {
-        Text(item.displayTitle)
+        Text(viewModel.item.displayTitle)
             .font(.system(size: geometry.size.width * 0.028, weight: .bold))
             .foregroundStyle(
                 LinearGradient(
@@ -202,10 +195,10 @@ struct MediaDetailView: View {
 
     private func metadataRow(geometry: GeometryProxy) -> some View {
         HStack(spacing: geometry.size.width * 0.01) {
-            if let year = item.productionYear {
+            if let year = viewModel.item.productionYear {
                 metadataItem(icon: "calendar", text: String(year), geometry: geometry)
             }
-            if let rating = item.communityRating {
+            if let rating = viewModel.item.communityRating {
                 HStack(spacing: 8) {
                     Image(systemName: "star.fill")
                         .font(.system(size: geometry.size.width * 0.01))
@@ -215,7 +208,7 @@ struct MediaDetailView: View {
                         .foregroundColor(.appTextPrimary)
                 }
             }
-            if let duration = item.duration {
+            if let duration = viewModel.item.duration {
                 metadataItem(icon: "clock", text: formatDuration(duration), geometry: geometry)
             }
         }
@@ -234,7 +227,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private func synopsisView(geometry: GeometryProxy) -> some View {
-        if let overview = item.overview, !overview.isEmpty {
+        if let overview = viewModel.item.overview, !overview.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Synopsis")
                     .font(.system(size: geometry.size.width * 0.014, weight: .bold))
@@ -255,7 +248,7 @@ struct MediaDetailView: View {
         HStack(spacing: geometry.size.width * 0.01) {
             playButton(geometry: geometry)
             qualityButton(geometry: geometry)
-            if !item.subtitleStreams.isEmpty {
+            if !viewModel.item.subtitleStreams.isEmpty {
                 subtitleButton(geometry: geometry)
             }
         }
@@ -267,7 +260,7 @@ struct MediaDetailView: View {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill")
                     .font(.system(size: geometry.size.width * 0.012))
-                Text(currentUserData?.played == true ? "Revoir" : "Lire")
+                Text(viewModel.currentUserData?.played == true ? "Revoir" : "Lire")
                     .font(.system(size: geometry.size.width * 0.013, weight: .semibold))
             }
             .foregroundColor(.black)
@@ -299,10 +292,10 @@ struct MediaDetailView: View {
     private func subtitleButton(geometry: GeometryProxy) -> some View {
         Button(action: { showSubtitlePicker = true }) {
             HStack(spacing: 10) {
-                Image(systemName: selectedSubtitleIndex != nil ? "captions.bubble.fill" : "captions.bubble")
+                Image(systemName: viewModel.selectedSubtitleIndex != nil ? "captions.bubble.fill" : "captions.bubble")
                     .font(.system(size: geometry.size.width * 0.01))
-                    .foregroundColor(selectedSubtitleIndex != nil ? .appPrimary : .appTextPrimary)
-                Text(selectedSubtitleDisplayName)
+                    .foregroundColor(viewModel.selectedSubtitleIndex != nil ? .appPrimary : .appTextPrimary)
+                Text(viewModel.selectedSubtitleDisplayName)
                     .font(.system(size: geometry.size.width * 0.011, weight: .medium))
                     .lineLimit(1)
             }
@@ -310,16 +303,16 @@ struct MediaDetailView: View {
             .padding(.horizontal, geometry.size.width * 0.015)
             .padding(.vertical, geometry.size.height * 0.015)
         }
-        .background(selectedSubtitleIndex != nil ? AppTheme.primary.opacity(0.2) : AppTheme.glassBackground)
+        .background(viewModel.selectedSubtitleIndex != nil ? AppTheme.primary.opacity(0.2) : AppTheme.glassBackground)
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(selectedSubtitleIndex != nil ? AppTheme.primary : AppTheme.glassStroke, lineWidth: 1.5))
+        .overlay(Capsule().stroke(viewModel.selectedSubtitleIndex != nil ? AppTheme.primary : AppTheme.glassStroke, lineWidth: 1.5))
     }
 
     @ViewBuilder
     private func progressView(geometry: GeometryProxy) -> some View {
-        if let userData = currentUserData,
+        if let userData = viewModel.currentUserData,
            userData.playbackPositionTicks > 0,
-           let duration = item.duration {
+           let duration = viewModel.item.duration {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Reprendre à \(formatDuration(userData.playbackPosition))")
                     .font(.system(size: geometry.size.width * 0.01, weight: .medium))
@@ -347,7 +340,7 @@ struct MediaDetailView: View {
             Text(seriesName)
                 .font(.system(size: geometry.size.width * 0.012))
                 .foregroundColor(.appTextSecondary)
-            if let season = item.parentIndexNumber, let episode = item.indexNumber {
+            if let season = viewModel.item.parentIndexNumber, let episode = viewModel.item.indexNumber {
                 Text("Saison \(season), Épisode \(episode)")
                     .font(.system(size: geometry.size.width * 0.011))
                     .foregroundColor(.appTextTertiary)
@@ -366,30 +359,30 @@ struct MediaDetailView: View {
                     onDismiss: { isPlaybackActive = false }
                 )
                 .ignoresSafeArea()
-                .scaleEffect(showNextEpisodeOverlay ? 0.85 : 1.0)
-                .animation(.easeInOut(duration: 0.3), value: showNextEpisodeOverlay)
+                .scaleEffect(viewModel.showNextEpisodeOverlay ? 0.85 : 1.0)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
             }
 
-            if showNextEpisodeOverlay {
+            if viewModel.showNextEpisodeOverlay {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .transition(.opacity)
             }
 
-            if showNextEpisodeOverlay, let nextEpisode = nextEpisode {
+            if viewModel.showNextEpisodeOverlay, let nextEpisode = viewModel.nextEpisode {
                 NextEpisodeOverlay(
                     nextEpisode: nextEpisode,
-                    countdown: nextEpisodeCountdown,
+                    countdown: viewModel.nextEpisodeCountdown,
                     jellyfinService: jellyfinService,
-                    onPlayNext: { Task { await playNextEpisode() } },
-                    onCancel: { cancelAutoPlay() }
+                    onPlayNext: { Task { await self.playNextEpisode() } },
+                    onCancel: { self.viewModel.cancelAutoPlay() }
                 )
                 .allowsHitTesting(true)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
                 .zIndex(1000)
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: showNextEpisodeOverlay)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
     }
 
     // MARK: - Alert Buttons
@@ -407,17 +400,11 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var subtitlePickerButtons: some View {
         Button("Aucun") {
-            selectedSubtitleIndex = nil
-            preferredSubtitleLanguage = nil
-            UserDefaults.standard.removeObject(forKey: "preferredSubtitleLanguage")
+            viewModel.disableSubtitles()
         }
-        ForEach(sortedSubtitleStreams) { subtitle in
+        ForEach(viewModel.sortedSubtitleStreams) { subtitle in
             Button(subtitle.displayName) {
-                selectedSubtitleIndex = subtitle.index
-                if let language = subtitle.language {
-                    preferredSubtitleLanguage = language
-                    UserDefaults.standard.set(language, forKey: "preferredSubtitleLanguage")
-                }
+                viewModel.selectSubtitle(index: subtitle.index, language: subtitle.language)
             }
         }
         Button("Annuler", role: .cancel) {}
@@ -432,7 +419,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var resumeAlertMessage: some View {
-        if let userData = currentUserData, userData.playbackPositionTicks > 0 {
+        if let userData = viewModel.currentUserData, userData.playbackPositionTicks > 0 {
             Text("Voulez-vous reprendre la lecture à \(formatDuration(userData.playbackPosition)) ?")
         } else {
             Text("Voulez-vous reprendre la lecture ?")
@@ -442,7 +429,7 @@ struct MediaDetailView: View {
     // MARK: - Event Handlers
 
     private func handlePlayButtonTap() {
-        if let userData = currentUserData,
+        if let userData = viewModel.currentUserData,
            userData.playbackPositionTicks > 0,
            !userData.played {
             showResumeAlert = true
@@ -451,23 +438,7 @@ struct MediaDetailView: View {
         }
     }
 
-    private func handleOnAppear() {
-        // Load subtitle preference
-        if let savedLanguage = UserDefaults.standard.string(forKey: "preferredSubtitleLanguage") {
-            preferredSubtitleLanguage = savedLanguage
-        }
-        autoSelectSubtitles()
-
-        // Init user data
-        currentUserData = item.userData
-        Task { await refreshUserData() }
-
-        // Load next episode for series
-        if item.type == "Episode" {
-            Task { await loadNextEpisode() }
-        }
-
-        // Autoplay if requested
+    private func setupAutoPlayIfNeeded() {
         if navigationCoordinator.shouldAutoPlay {
             navigationCoordinator.shouldAutoPlay = false
             Task {
@@ -475,17 +446,15 @@ struct MediaDetailView: View {
                 startPlayback(resumePosition: false)
             }
         }
-
-        // Setup callbacks
         setupPlayerCallbacks()
     }
 
     private func setupPlayerCallbacks() {
         playerManager.callbacks.onApproachEnd = { [self] timeRemaining in
-            guard nextEpisode != nil, !showNextEpisodeOverlay, shouldAutoPlayNext else { return }
-            showNextEpisodeOverlay = true
-            nextEpisodeCountdown = Int(timeRemaining)
-            startCountdown()
+            guard viewModel.nextEpisode != nil,
+                  !viewModel.showNextEpisodeOverlay,
+                  viewModel.shouldAutoPlayNext else { return }
+            viewModel.startNextEpisodeCountdown(initialTime: Int(timeRemaining))
         }
 
         playerManager.callbacks.onPlaybackFinished = { [self] in
@@ -495,14 +464,14 @@ struct MediaDetailView: View {
 
     private func handleOnDisappear() {
         if !isPlaybackActive {
-            Task { await refreshUserData() }
+            Task { await viewModel.refreshUserData() }
         }
     }
 
     private func handlePlaybackDismiss() {
         Task {
             await playerManager.stop()
-            await refreshUserData()
+            await viewModel.refreshUserData()
         }
     }
 
@@ -521,14 +490,14 @@ struct MediaDetailView: View {
     // MARK: - Playback
 
     private func startPlayback(resumePosition: Bool) {
-        let position: TimeInterval? = resumePosition ? currentUserData?.playbackPosition : nil
+        let position: TimeInterval? = resumePosition ? viewModel.resumePosition : nil
 
         Task {
             await playerManager.startPlayback(
-                item: item,
+                item: viewModel.item,
                 quality: jellyfinService.preferredQuality,
                 resumePosition: position,
-                subtitleIndex: selectedSubtitleIndex,
+                subtitleIndex: viewModel.selectedSubtitleIndex,
                 jellyfinService: jellyfinService
             )
             isPlaybackActive = true
@@ -537,37 +506,8 @@ struct MediaDetailView: View {
 
     // MARK: - Next Episode
 
-    private func loadNextEpisode() async {
-        do {
-            nextEpisode = try await jellyfinService.getNextEpisode(currentItemId: item.id)
-        } catch {
-            print("[MediaDetailView] Erreur chargement prochain épisode: \(error.localizedDescription)")
-        }
-    }
-
-    private func startCountdown() {
-        countdownTask?.cancel()
-
-        countdownTask = Task { @MainActor in
-            while !Task.isCancelled && nextEpisodeCountdown > 0 {
-                try? await Task.sleep(for: .seconds(1))
-                if !Task.isCancelled {
-                    nextEpisodeCountdown -= 1
-                }
-            }
-
-            if !Task.isCancelled && shouldAutoPlayNext {
-                await playNextEpisode()
-            }
-        }
-    }
-
     private func playNextEpisode() async {
-        guard let nextEpisode = nextEpisode else { return }
-
-        countdownTask?.cancel()
-        countdownTask = nil
-        showNextEpisodeOverlay = false
+        guard let nextEpisode = viewModel.onAutoPlayTriggered() else { return }
 
         await playerManager.stop()
         try? await Task.sleep(for: .seconds(0.3))
@@ -577,64 +517,10 @@ struct MediaDetailView: View {
         navigationCoordinator.replaceLastWith(item: nextEpisode)
     }
 
-    private func cancelAutoPlay() {
-        shouldAutoPlayNext = false
-        countdownTask?.cancel()
-        countdownTask = nil
-        withAnimation { showNextEpisodeOverlay = false }
-    }
-
-    // MARK: - Data
-
-    private func refreshUserData() async {
-        do {
-            let updatedItem = try await jellyfinService.getItemDetails(itemId: item.id)
-            await MainActor.run { currentUserData = updatedItem.userData }
-        } catch {
-            print("[MediaDetailView] Erreur rafraîchissement données utilisateur: \(error.localizedDescription)")
-        }
-    }
-
     // MARK: - Helpers
 
     private var typeIcon: String {
-        switch item.type {
-        case "Movie": return "film"
-        case "Episode": return "tv"
-        default: return "play.rectangle"
-        }
-    }
-
-    private var selectedSubtitleDisplayName: String {
-        if let index = selectedSubtitleIndex,
-           let subtitle = item.subtitleStreams.first(where: { $0.index == index }) {
-            return subtitle.displayName
-        }
-        return "Aucun"
-    }
-
-    private var sortedSubtitleStreams: [MediaStream] {
-        item.subtitleStreams.sorted { s1, s2 in
-            let isForced1 = s1.isForced ?? false
-            let isForced2 = s2.isForced ?? false
-            if isForced1 != isForced2 { return !isForced1 }
-            return s1.displayName < s2.displayName
-        }
-    }
-
-    private func autoSelectSubtitles() {
-        guard let preferredLanguage = preferredSubtitleLanguage,
-              !item.subtitleStreams.isEmpty else { return }
-
-        if let matching = item.subtitleStreams.first(where: {
-            $0.language?.lowercased() == preferredLanguage.lowercased() && $0.isForced != true
-        }) {
-            selectedSubtitleIndex = matching.index
-        } else if let defaultSub = item.subtitleStreams.first(where: {
-            $0.isDefault == true && $0.isForced != true
-        }) {
-            selectedSubtitleIndex = defaultSub.index
-        }
+        viewModel.typeIcon
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {

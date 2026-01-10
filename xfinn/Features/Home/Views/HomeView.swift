@@ -3,6 +3,7 @@
 //  xfinn
 //
 //  Created by Dorian Galiana on 23/11/2025.
+//  Refactored with ViewModel pattern - Phase 1
 //
 
 import SwiftUI
@@ -17,20 +18,20 @@ private struct ParticleData: Identifiable {
 
 /// Vue d'accueil moderne avec design Liquid Glass
 struct HomeView: View {
+    // MARK: - Dependencies
+
     @ObservedObject var jellyfinService: JellyfinService
     @EnvironmentObject private var navigationCoordinator: NavigationCoordinator
 
-    @State private var resumeItems: [MediaItem] = []
-    @State private var recentItems: [MediaItem] = []
-    @State private var isLoading = true
-    @State private var hasLoaded = false
-    @State private var selectedTab = 0
-    @State private var showSearchView = false
+    // MARK: - ViewModel
 
+    @StateObject private var viewModel: HomeViewModel
+
+    // MARK: - UI State (reste dans la vue car purement UI)
+
+    @State private var showSearchView = false
     @Namespace private var focusNamespace
     @FocusState private var focusedItem: String?
-
-    // Focus explicite pour le bouton de recherche
     @FocusState private var isSearchButtonFocused: Bool
     @FocusState private var isLibraryButtonFocused: Bool
 
@@ -42,6 +43,13 @@ struct HomeView: View {
             xRatio: CGFloat.random(in: 0...1),
             yRatio: CGFloat.random(in: 0...1)
         )
+    }
+
+    // MARK: - Initialization
+
+    init(jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: HomeViewModel(jellyfinService: jellyfinService))
     }
 
     var body: some View {
@@ -82,13 +90,13 @@ struct HomeView: View {
                         // En-tête moderne
                         headerView
                             .padding(.top, 20)
-                        
+
                         // Section "À reprendre"
-                        if !resumeItems.isEmpty {
+                        if viewModel.hasResumeItems {
                             MediaCarousel(
                                 title: "À reprendre",
                                 icon: "play.circle.fill",
-                                items: resumeItems,
+                                items: viewModel.resumeItems,
                                 jellyfinService: jellyfinService,
                                 accentColor: .appPrimary,
                                 focusNamespace: focusNamespace,
@@ -96,21 +104,21 @@ struct HomeView: View {
                                 focusedItem: $focusedItem
                             )
                         }
-                        
+
                         // Section "Récemment ajoutés"
-                        if !recentItems.isEmpty {
+                        if viewModel.hasRecentItems {
                             MediaCarousel(
                                 title: "Récemment ajoutés",
                                 icon: "sparkles",
-                                items: recentItems,
+                                items: viewModel.recentItems,
                                 jellyfinService: jellyfinService,
                                 accentColor: .appSecondary,
                                 focusNamespace: focusNamespace,
-                                isFirstCarousel: resumeItems.isEmpty,
+                                isFirstCarousel: !viewModel.hasResumeItems,
                                 focusedItem: $focusedItem
                             )
                         }
-                        
+
                         // Espace pour le bas
                         Color.clear
                             .frame(height: 40)
@@ -136,7 +144,7 @@ struct HomeView: View {
                 }
             }
             .overlay {
-                if isLoading {
+                if viewModel.loadingState.isLoading {
                     modernLoadingView
                 }
             }
@@ -149,9 +157,9 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            if !hasLoaded, jellyfinService.isAuthenticated {
+            if !viewModel.hasLoaded, jellyfinService.isAuthenticated {
                 Task {
-                    await loadContent()
+                    await viewModel.loadContent()
                 }
             }
         }
@@ -336,43 +344,8 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Load Content
-    
-    
-    private func loadContent() async {
-        guard !hasLoaded else { return }
-        hasLoaded = true
-        isLoading = true
-        
-        // Charger les données en parallèle
-        async let resumeTask: Void = loadResumeItems()
-        async let recentTask: Void = loadRecentItems()
-        
-        await resumeTask
-        await recentTask
-        
-        await MainActor.run {
-            withAnimation(AppTheme.standardAnimation) {
-                isLoading = false
-            }
-        }
-    }
-    
-    private func loadResumeItems() async {
-        do {
-            resumeItems = try await jellyfinService.getResumeItems(limit: 10)
-        } catch {
-            print("[HomeView] Erreur chargement items à reprendre: \(error.localizedDescription)")
-        }
-    }
-
-    private func loadRecentItems() async {
-        do {
-            recentItems = try await jellyfinService.getLatestItems(limit: 10)
-        } catch {
-            print("[HomeView] Erreur chargement items récents: \(error.localizedDescription)")
-        }
-    }
+    // MARK: - Load Content (delegated to ViewModel)
+    // La logique de chargement est maintenant dans HomeViewModel
 }
 
 // MARK: - Media Carousel
