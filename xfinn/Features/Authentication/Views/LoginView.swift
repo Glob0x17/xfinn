@@ -16,15 +16,8 @@ private struct LoginParticleData: Identifiable {
 }
 
 struct LoginView: View {
+    @StateObject private var viewModel: LoginViewModel
     @ObservedObject var jellyfinService: JellyfinService
-
-    @State private var serverURL = ""
-    @State private var username = ""
-    @State private var password = ""
-    @State private var isConnecting = false
-    @State private var errorMessage: String?
-    @State private var connectionStep: ConnectionStep = .server
-    @State private var animateLogo = false
 
     // Particules pré-calculées pour éviter les re-renders
     private let particles: [LoginParticleData] = (0..<15).map { index in
@@ -36,9 +29,9 @@ struct LoginView: View {
         )
     }
 
-    enum ConnectionStep {
-        case server
-        case authentication
+    init(jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: LoginViewModel(jellyfinService: jellyfinService))
     }
     
     var body: some View {
@@ -70,9 +63,7 @@ struct LoginView: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            withAnimation(AppTheme.springAnimation.delay(0.3)) {
-                animateLogo = true
-            }
+            viewModel.startLogoAnimation()
         }
     }
     
@@ -141,8 +132,8 @@ struct LoginView: View {
                     )
                     .glowing(color: .appPrimary, radius: 30)
             }
-            .scaleEffect(animateLogo ? 1.0 : 0.8)
-            .opacity(animateLogo ? 1.0 : 0.0)
+            .scaleEffect(viewModel.animateLogo ? 1.0 : 0.8)
+            .opacity(viewModel.animateLogo ? 1.0 : 0.0)
             
             // Titre avec gradient
             Text("XFINN")
@@ -155,8 +146,8 @@ struct LoginView: View {
                     )
                 )
                 .glowing(color: .appAccent, radius: 15)
-                .offset(y: animateLogo ? 0 : 20)
-                .opacity(animateLogo ? 1.0 : 0.0)
+                .offset(y: viewModel.animateLogo ? 0 : 20)
+                .opacity(viewModel.animateLogo ? 1.0 : 0.0)
         }
     }
     
@@ -164,7 +155,7 @@ struct LoginView: View {
     
     private var connectionCard: some View {
         VStack(spacing: 0) {
-            if connectionStep == .server {
+            if viewModel.connectionStep == .server {
                 serverConnectionView
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -177,9 +168,9 @@ struct LoginView: View {
                         removal: .move(edge: .leading).combined(with: .opacity)
                     ))
             }
-            
+
             // Message d'erreur
-            if let error = errorMessage {
+            if let error = viewModel.errorMessage {
                 errorBanner(message: error)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -216,7 +207,7 @@ struct LoginView: View {
                     .foregroundStyle(Color.appTextPrimary)
                 
                 #if os(tvOS)
-                TextField("192.168.1.100 ou jellyfin.local", text: $serverURL)
+                TextField("192.168.1.100 ou jellyfin.local", text: $viewModel.serverURL)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.URL)
                     .keyboardType(.URL)
@@ -230,9 +221,11 @@ struct LoginView: View {
                             )
                     )
                     .submitLabel(.continue)
-                    .onSubmit { connectToServer() }
+                    .onSubmit {
+                        Task { await viewModel.connectToServer() }
+                    }
                 #else
-                TextField("192.168.1.100 ou jellyfin.local", text: $serverURL)
+                TextField("192.168.1.100 ou jellyfin.local", text: $viewModel.serverURL)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.URL)
@@ -247,7 +240,9 @@ struct LoginView: View {
                             )
                     )
                     .submitLabel(.continue)
-                    .onSubmit { connectToServer() }
+                    .onSubmit {
+                        Task { await viewModel.connectToServer() }
+                    }
                 #endif
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -261,9 +256,11 @@ struct LoginView: View {
             }
             
             // Bouton de connexion
-            Button(action: connectToServer) {
+            Button {
+                Task { await viewModel.connectToServer() }
+            } label: {
                 HStack(spacing: 15) {
-                    if isConnecting {
+                    if viewModel.isConnecting {
                         ProgressView()
                             .progressViewStyle(.circular)
                             .tint(.white)
@@ -280,9 +277,9 @@ struct LoginView: View {
             }
             .buttonStyle(.plain)
             .glassButton(prominent: true)
-            .disabled(serverURL.isEmpty || isConnecting)
-            .opacity((serverURL.isEmpty || isConnecting) ? 0.5 : 1.0)
-            .glowing(color: .appPrimary, radius: serverURL.isEmpty ? 0 : 20)
+            .disabled(!viewModel.canConnectToServer)
+            .opacity(viewModel.serverButtonOpacity)
+            .glowing(color: .appPrimary, radius: viewModel.serverButtonGlowRadius)
         }
     }
     
@@ -312,8 +309,8 @@ struct LoginView: View {
                 Label("Nom d'utilisateur", systemImage: "person")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
-                
-                TextField("Votre nom d'utilisateur", text: $username)
+
+                TextField("Votre nom d'utilisateur", text: $viewModel.username)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.username)
@@ -328,14 +325,14 @@ struct LoginView: View {
                     )
                     .submitLabel(.next)
             }
-            
+
             // Champ mot de passe
             VStack(alignment: .leading, spacing: 12) {
                 Label("Mot de passe", systemImage: "lock.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
-                
-                SecureField("Votre mot de passe", text: $password)
+
+                SecureField("Votre mot de passe", text: $viewModel.password)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.password)
@@ -349,17 +346,16 @@ struct LoginView: View {
                             )
                     )
                     .submitLabel(.go)
-                    .onSubmit { authenticate() }
+                    .onSubmit {
+                        Task { await viewModel.authenticate() }
+                    }
             }
-            
+
             // Boutons
             HStack(spacing: 20) {
                 // Bouton retour
-                Button(action: { 
-                    withAnimation(AppTheme.standardAnimation) {
-                        connectionStep = .server
-                        errorMessage = nil
-                    }
+                Button(action: {
+                    viewModel.goBackToServer()
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "arrow.left")
@@ -372,11 +368,13 @@ struct LoginView: View {
                 }
                 .buttonStyle(.plain)
                 .glassButton(prominent: false)
-                
+
                 // Bouton connexion
-                Button(action: authenticate) {
+                Button {
+                    Task { await viewModel.authenticate() }
+                } label: {
                     HStack(spacing: 15) {
-                        if isConnecting {
+                        if viewModel.isConnecting {
                             ProgressView()
                                 .progressViewStyle(.circular)
                                 .tint(.white)
@@ -393,32 +391,30 @@ struct LoginView: View {
                 }
                 .buttonStyle(.plain)
                 .glassButton(prominent: true)
-                .disabled(username.isEmpty || isConnecting)
-                .opacity((username.isEmpty || isConnecting) ? 0.5 : 1.0)
-                .glowing(color: .appAccent, radius: username.isEmpty ? 0 : 20)
+                .disabled(!viewModel.canAuthenticate)
+                .opacity(viewModel.authButtonOpacity)
+                .glowing(color: .appAccent, radius: viewModel.authButtonGlowRadius)
             }
         }
     }
     
     // MARK: - Error Banner
-    
+
     private func errorBanner(message: String) -> some View {
         HStack(spacing: 15) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 28))
                 .foregroundStyle(Color.appError)
-            
+
             Text(message)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(Color.appTextPrimary)
                 .multilineTextAlignment(.leading)
-            
+
             Spacer()
-            
-            Button(action: { 
-                withAnimation(AppTheme.standardAnimation) {
-                    errorMessage = nil
-                }
+
+            Button(action: {
+                viewModel.clearError()
             }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 24))
@@ -435,59 +431,6 @@ struct LoginView: View {
                 )
         )
         .padding(.top, 20)
-    }
-    
-    // MARK: - Actions
-    
-    private func connectToServer() {
-        let cleanedURL = serverURL.normalizedJellyfinURL()
-        
-        withAnimation(AppTheme.standardAnimation) {
-            isConnecting = true
-            errorMessage = nil
-        }
-        
-        Task {
-            do {
-                let _ = try await jellyfinService.connect(to: cleanedURL)
-                await MainActor.run {
-                    withAnimation(AppTheme.standardAnimation) {
-                        connectionStep = .authentication
-                        isConnecting = false
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    withAnimation(AppTheme.standardAnimation) {
-                        errorMessage = "Impossible de se connecter: \(error.localizedDescription)"
-                        isConnecting = false
-                    }
-                }
-            }
-        }
-    }
-    
-    private func authenticate() {
-        withAnimation(AppTheme.standardAnimation) {
-            isConnecting = true
-            errorMessage = nil
-        }
-        
-        Task {
-            do {
-                try await jellyfinService.authenticate(username: username, password: password)
-                await MainActor.run {
-                    isConnecting = false
-                }
-            } catch {
-                await MainActor.run {
-                    withAnimation(AppTheme.standardAnimation) {
-                        errorMessage = "Échec de l'authentification: \(error.localizedDescription)"
-                        isConnecting = false
-                    }
-                }
-            }
-        }
     }
 }
 

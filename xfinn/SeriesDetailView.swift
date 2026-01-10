@@ -9,12 +9,13 @@ import SwiftUI
 
 /// Vue de détail d'une série avec design Liquid Glass
 struct SeriesDetailView: View {
-    let series: MediaItem
+    @StateObject private var viewModel: SeriesDetailViewModel
     @ObservedObject var jellyfinService: JellyfinService
-    
-    @State private var seasons: [MediaItem] = []
-    @State private var isLoading = true
-    @State private var hasLoaded = false
+
+    init(series: MediaItem, jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: SeriesDetailViewModel(series: series, jellyfinService: jellyfinService))
+    }
     
     var body: some View {
         ZStack {
@@ -28,9 +29,9 @@ struct SeriesDetailView: View {
                     heroSection
                     
                     // Liste des saisons
-                    if isLoading {
+                    if viewModel.isLoading {
                         loadingView
-                    } else if seasons.isEmpty {
+                    } else if viewModel.isEmpty {
                         emptyStateView
                     } else {
                         seasonsSection
@@ -40,9 +41,9 @@ struct SeriesDetailView: View {
             }
         }
         .onAppear {
-            if !hasLoaded {
+            if !viewModel.hasLoaded {
                 Task {
-                    await loadSeasons()
+                    await viewModel.loadSeasons()
                 }
             }
         }
@@ -53,7 +54,7 @@ struct SeriesDetailView: View {
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 30) {
             // Backdrop image
-            AsyncImage(url: URL(string: jellyfinService.getImageURL(itemId: series.id, imageType: "Backdrop"))) { phase in
+            AsyncImage(url: URL(string: viewModel.backdropURL)) { phase in
                 switch phase {
                 case .success(let image):
                     image
@@ -101,7 +102,7 @@ struct SeriesDetailView: View {
                 )
                 
                 // Titre
-                Text(series.name)
+                Text(viewModel.series.name)
                     .font(.system(size: 56, weight: .bold))
                     .foregroundStyle(
                         LinearGradient(
@@ -110,10 +111,10 @@ struct SeriesDetailView: View {
                             endPoint: .trailing
                         )
                     )
-                
+
                 // Métadonnées
                 HStack(spacing: 20) {
-                    if let year = series.productionYear {
+                    if let year = viewModel.series.productionYear {
                         HStack(spacing: 8) {
                             Image(systemName: "calendar")
                                 .font(.system(size: 20))
@@ -122,8 +123,8 @@ struct SeriesDetailView: View {
                         }
                         .foregroundColor(.appTextSecondary)
                     }
-                    
-                    if let rating = series.communityRating {
+
+                    if let rating = viewModel.series.communityRating {
                         HStack(spacing: 8) {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 20))
@@ -134,9 +135,9 @@ struct SeriesDetailView: View {
                         }
                     }
                 }
-                
+
                 // Synopsis
-                if let overview = series.overview, !overview.isEmpty {
+                if let overview = viewModel.series.overview, !overview.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Synopsis")
                             .font(.system(size: 28, weight: .bold))
@@ -234,8 +235,8 @@ struct SeriesDetailView: View {
                     .foregroundColor(.appTextPrimary)
                 
                 Spacer()
-                
-                Text("\(seasons.count)")
+
+                Text("\(viewModel.seasonCount)")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.appAccent)
                     .padding(.horizontal, 18)
@@ -260,7 +261,7 @@ struct SeriesDetailView: View {
                 ],
                 spacing: 30
             ) {
-                ForEach(seasons) { season in
+                ForEach(viewModel.seasons) { season in
                     NavigationLink {
                         SeasonEpisodesView(season: season, jellyfinService: jellyfinService)
                     } label: {
@@ -270,34 +271,6 @@ struct SeriesDetailView: View {
                 }
             }
             .padding(.horizontal, 60)
-        }
-    }
-    
-    // MARK: - Load Seasons
-    
-    @MainActor
-    private func loadSeasons() async {
-        guard !hasLoaded else {
-            return
-        }
-        
-        hasLoaded = true
-        isLoading = true
-        
-        do {
-            let loadedSeasons = try await jellyfinService.getItems(
-                parentId: series.id,
-                includeItemTypes: ["Season"]
-            )
-            
-            withAnimation(AppTheme.standardAnimation) {
-                self.seasons = loadedSeasons
-                self.isLoading = false
-            }
-        } catch {
-            print("[SeriesDetailView] Erreur chargement saisons: \(error.localizedDescription)")
-            self.hasLoaded = false
-            self.isLoading = false
         }
     }
 }
@@ -387,32 +360,33 @@ struct SeasonCard: View {
 // MARK: - Season Episodes View
 
 struct SeasonEpisodesView: View {
-    let season: MediaItem
+    @StateObject private var viewModel: SeasonEpisodesViewModel
     @ObservedObject var jellyfinService: JellyfinService
-    
-    @State private var episodes: [MediaItem] = []
-    @State private var isLoading = true
-    @State private var hasLoaded = false
-    
+
+    init(season: MediaItem, jellyfinService: JellyfinService) {
+        self.jellyfinService = jellyfinService
+        self._viewModel = StateObject(wrappedValue: SeasonEpisodesViewModel(season: season, jellyfinService: jellyfinService))
+    }
+
     var body: some View {
         ZStack {
             // Background
             AppTheme.backgroundGradient
                 .ignoresSafeArea()
-            
-            if isLoading {
+
+            if viewModel.isLoading {
                 loadingView
-            } else if episodes.isEmpty {
+            } else if viewModel.isEmpty {
                 emptyStateView
             } else {
                 episodesContent
             }
         }
-        .navigationTitle(season.name)
+        .navigationTitle(viewModel.season.name)
         .onAppear {
-            if !hasLoaded {
+            if !viewModel.hasLoaded {
                 Task {
-                    await loadEpisodes()
+                    await viewModel.loadEpisodes()
                 }
             }
         }
@@ -465,26 +439,26 @@ struct SeasonEpisodesView: View {
     }
     
     // MARK: - Episodes Content
-    
+
     private var episodesContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 // En-tête
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(season.name)
+                    Text(viewModel.season.name)
                         .font(.system(size: 48, weight: .bold))
                         .foregroundColor(.appTextPrimary)
-                    
-                    Text("\(episodes.count) épisode\(episodes.count > 1 ? "s" : "")")
+
+                    Text(viewModel.episodeCountText)
                         .font(.system(size: 24))
                         .foregroundColor(.appTextSecondary)
                 }
                 .padding(.horizontal, 60)
                 .padding(.top, 20)
-                
+
                 // Liste des épisodes
                 LazyVStack(spacing: 30) {
-                    ForEach(episodes) { episode in
+                    ForEach(viewModel.episodes) { episode in
                         NavigationLink {
                             MediaDetailView(item: episode, jellyfinService: jellyfinService)
                         } label: {
@@ -496,33 +470,6 @@ struct SeasonEpisodesView: View {
                 .padding(.horizontal, 60)
                 .padding(.bottom, 60)
             }
-        }
-    }
-    
-    // MARK: - Load Episodes
-    
-    @MainActor
-    private func loadEpisodes() async {
-        guard !hasLoaded else {
-            return
-        }
-        
-        hasLoaded = true
-        isLoading = true
-        
-        do {
-            let loadedEpisodes = try await jellyfinService.getItems(
-                parentId: season.id,
-                includeItemTypes: ["Episode"]
-            )
-            
-            withAnimation(AppTheme.standardAnimation) {
-                self.episodes = loadedEpisodes
-                self.isLoading = false
-            }
-        } catch {
-            self.hasLoaded = false
-            self.isLoading = false
         }
     }
 }
