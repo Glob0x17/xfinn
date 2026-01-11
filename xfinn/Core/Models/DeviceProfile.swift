@@ -2,7 +2,6 @@
 //  DeviceProfile.swift
 //  xfinn
 //
-//  Created by Claude on 10/01/2026.
 //  Device profile for Jellyfin playback with subtitle support.
 //
 
@@ -30,118 +29,176 @@ struct DeviceProfile: Codable {
         case codecProfiles = "CodecProfiles"
     }
 
-    /// Crée un profil optimisé pour tvOS avec support HLS et sous-titres
+    /// Crée un profil optimisé pour tvOS basé sur les capacités détectées de l'appareil
+    /// Adapte automatiquement les codecs et résolutions supportés selon le modèle d'Apple TV
     static func tvOSProfile(maxBitrate: Int? = nil) -> DeviceProfile {
+        let capabilities = DeviceCapabilities.current
+
         var profile = DeviceProfile()
 
-        // Bitrate
-        let bitrate = maxBitrate ?? 20_000_000
+        // Bitrate adapté à la résolution max supportée
+        let defaultBitrate = capabilities.maxResolution == .uhd4K ? 200_000_000 : 40_000_000
+        let bitrate = maxBitrate ?? defaultBitrate
         profile.maxStreamingBitrate = bitrate
         profile.maxStaticBitrate = bitrate
         profile.musicStreamingTranscodingBitrate = 192000
 
-        // Direct Play - Formats supportés nativement par tvOS
-        profile.directPlayProfiles = [
-            DirectPlayProfile(
-                type: "Video",
-                container: "mp4,m4v",
-                videoCodec: "h264,hevc",
-                audioCodec: "aac,ac3,eac3,alac,flac"
-            ),
-            DirectPlayProfile(
-                type: "Video",
-                container: "mov",
-                videoCodec: "h264,hevc,mjpeg,mpeg4",
-                audioCodec: "aac,ac3,eac3,mp3,pcm_s16le,pcm_s24le"
-            ),
-            DirectPlayProfile(
-                type: "Video",
-                container: "mpegts,ts",
-                videoCodec: "h264",
-                audioCodec: "aac,ac3,eac3,mp3"
-            )
-        ]
+        // Construire les codecs vidéo supportés
+        var videoCodecs: [String] = []
+        if capabilities.supportsHEVC {
+            videoCodecs.append("hevc")
+        }
+        videoCodecs.append("h264")  // H.264 toujours supporté
+        if capabilities.supportsAV1 {
+            videoCodecs.append("av1")
+        }
+        let videoCodecString = videoCodecs.joined(separator: ",")
 
-        // Transcoding Profile - HLS avec sous-titres dans le manifest
+        // Codecs audio (identiques pour tous les modèles)
+        let audioCodecs = "aac,ac3,eac3,alac,mp3,flac"
+
+        // Direct Play - Formats supportés nativement par AVPlayer
+        // IMPORTANT: MKV n'est JAMAIS supporté par AVPlayer
+        profile.directPlayProfiles = buildDirectPlayProfiles(
+            videoCodecs: videoCodecString,
+            audioCodecs: audioCodecs,
+            capabilities: capabilities
+        )
+
+        // Transcoding Profile - HLS avec fMP4 pour compatibilité HEVC/HDR
         profile.transcodingProfiles = [
             TranscodingProfile(
                 type: "Video",
-                container: "ts",
-                videoCodec: "h264",
-                audioCodec: "aac,ac3,eac3",
+                container: "mp4",  // fMP4 pour HLS - CRUCIAL pour HEVC/DV !
+                videoCodec: videoCodecString,
+                audioCodec: audioCodecs,
                 context: "Streaming",
                 protocol: "hls",
-                maxAudioChannels: "6",
+                maxAudioChannels: "8",
                 minSegments: 2,
                 breakOnNonKeyFrames: true,
-                enableSubtitlesInManifest: true  // Clé ! Sous-titres dans le manifest HLS
+                enableSubtitlesInManifest: true
             )
         ]
 
-        // Subtitle Profiles - Support des différentes méthodes de livraison
+        // Subtitle Profiles (identiques pour tous les modèles)
         profile.subtitleProfiles = [
-            // HLS - Pour intégration dans le manifest (menu CC natif)
             SubtitleProfile(format: "vtt", method: "Hls"),
-
-            // External - Pour téléchargement séparé si nécessaire
             SubtitleProfile(format: "srt", method: "External"),
             SubtitleProfile(format: "ass", method: "External"),
             SubtitleProfile(format: "ssa", method: "External"),
             SubtitleProfile(format: "sub", method: "External"),
-
-            // Encode - Pour burn-in si nécessaire
             SubtitleProfile(format: "pgssub", method: "Encode"),
             SubtitleProfile(format: "dvdsub", method: "Encode"),
             SubtitleProfile(format: "dvbsub", method: "Encode")
         ]
 
-        // Codec Profiles - Conditions pour les codecs vidéo
-        profile.codecProfiles = [
-            CodecProfile(
-                type: "Video",
-                codec: "h264",
-                conditions: [
-                    ProfileCondition(
-                        condition: "NotEquals",
-                        property: "IsAnamorphic",
-                        value: "true",
-                        isRequired: false
-                    ),
-                    ProfileCondition(
-                        condition: "NotEquals",
-                        property: "IsInterlaced",
-                        value: "true",
-                        isRequired: false
-                    ),
-                    ProfileCondition(
-                        condition: "LessThanEqual",
-                        property: "VideoLevel",
-                        value: "51",
-                        isRequired: false
-                    )
-                ]
-            ),
-            CodecProfile(
-                type: "Video",
-                codec: "hevc",
-                conditions: [
-                    ProfileCondition(
-                        condition: "NotEquals",
-                        property: "IsAnamorphic",
-                        value: "true",
-                        isRequired: false
-                    ),
-                    ProfileCondition(
-                        condition: "NotEquals",
-                        property: "IsInterlaced",
-                        value: "true",
-                        isRequired: false
-                    )
-                ]
-            )
-        ]
+        // Codec Profiles - Conditions selon les capacités
+        profile.codecProfiles = buildCodecProfiles(capabilities: capabilities)
 
         return profile
+    }
+
+    /// Construit les profils Direct Play selon les capacités
+    private static func buildDirectPlayProfiles(
+        videoCodecs: String,
+        audioCodecs: String,
+        capabilities: DeviceCapabilities
+    ) -> [DirectPlayProfile] {
+        var profiles: [DirectPlayProfile] = []
+
+        // MP4/M4V - Format principal pour HEVC et H.264
+        profiles.append(DirectPlayProfile(
+            type: "Video",
+            container: "mp4,m4v",
+            videoCodec: videoCodecs,
+            audioCodec: audioCodecs
+        ))
+
+        // MOV - Format Apple natif
+        profiles.append(DirectPlayProfile(
+            type: "Video",
+            container: "mov",
+            videoCodec: videoCodecs,
+            audioCodec: audioCodecs
+        ))
+
+        // HLS/TS - H.264 uniquement (HEVC dans TS pose des problèmes avec HDR/DV)
+        profiles.append(DirectPlayProfile(
+            type: "Video",
+            container: "mpegts,ts",
+            videoCodec: "h264",  // Pas de HEVC dans TS !
+            audioCodec: "aac,ac3,eac3,mp3"
+        ))
+
+        return profiles
+    }
+
+    /// Construit les profils de codec selon les capacités
+    private static func buildCodecProfiles(capabilities: DeviceCapabilities) -> [CodecProfile] {
+        var profiles: [CodecProfile] = []
+
+        // Conditions de base pour H.264
+        let h264Level = capabilities.maxResolution == .uhd4K ? "52" : "42"
+        profiles.append(CodecProfile(
+            type: "Video",
+            codec: "h264",
+            conditions: [
+                ProfileCondition(condition: "NotEquals", property: "IsAnamorphic", value: "true", isRequired: false),
+                ProfileCondition(condition: "NotEquals", property: "IsInterlaced", value: "true", isRequired: false),
+                ProfileCondition(condition: "LessThanEqual", property: "VideoLevel", value: h264Level, isRequired: false)
+            ]
+        ))
+
+        // HEVC si supporté
+        if capabilities.supportsHEVC {
+            var hevcConditions: [ProfileCondition] = [
+                ProfileCondition(condition: "NotEquals", property: "IsAnamorphic", value: "true", isRequired: false),
+                ProfileCondition(condition: "NotEquals", property: "IsInterlaced", value: "true", isRequired: false),
+                ProfileCondition(condition: "LessThanEqual", property: "VideoLevel", value: "186", isRequired: false)
+            ]
+
+            // Ajouter les types HDR supportés
+            if capabilities.supportsHDR10 || capabilities.supportsDolbyVision {
+                var videoRangeTypes = ["SDR"]
+                if capabilities.supportsHDR10 {
+                    videoRangeTypes.append("HDR10")
+                }
+                if capabilities.supportsHDR10Plus {
+                    videoRangeTypes.append("HDR10Plus")
+                }
+                if capabilities.supportsDolbyVision {
+                    videoRangeTypes.append(contentsOf: ["DOVI", "DOVIWithHDR10", "DOVIWithHDR10Plus", "DOVIWithSDR"])
+                }
+
+                hevcConditions.append(ProfileCondition(
+                    condition: "EqualsAny",
+                    property: "VideoRangeType",
+                    value: videoRangeTypes.joined(separator: "|"),
+                    isRequired: false
+                ))
+            }
+
+            profiles.append(CodecProfile(
+                type: "Video",
+                codec: "hevc",
+                conditions: hevcConditions
+            ))
+        }
+
+        // AV1 si supporté (Apple TV 4K 3rd gen uniquement)
+        if capabilities.supportsAV1 {
+            profiles.append(CodecProfile(
+                type: "Video",
+                codec: "av1",
+                conditions: [
+                    ProfileCondition(condition: "NotEquals", property: "IsAnamorphic", value: "true", isRequired: false),
+                    ProfileCondition(condition: "NotEquals", property: "IsInterlaced", value: "true", isRequired: false)
+                ]
+            ))
+        }
+
+        return profiles
     }
 }
 

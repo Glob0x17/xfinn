@@ -2,8 +2,7 @@
 //  PlaybackService.swift
 //  xfinn
 //
-//  Created by Claude on 05/01/2026.
-//  Extracted from JellyfinService for better separation of concerns.
+//  Jellyfin playback service with DeviceProfile support.
 //
 
 import Foundation
@@ -43,7 +42,9 @@ final class PlaybackService {
         }
 
         // Créer le device profile avec support des sous-titres
-        let maxBitrate = quality.maxBitrate ?? 20_000_000
+        // Pour "Auto", utiliser le bitrate Maximum (360 Mbps) pour favoriser le Direct Play
+        // Le serveur choisira le meilleur mode en fonction du média
+        let maxBitrate = quality.maxBitrate ?? StreamQuality.maximum.rawValue
         let deviceProfile = DeviceProfile.tvOSProfile(maxBitrate: maxBitrate)
 
         // Créer la requête PlaybackInfo
@@ -61,6 +62,7 @@ final class PlaybackService {
         request.httpBody = try JSONEncoder().encode(playbackInfoRequest)
 
         let (data, _) = try await URLSession.shared.data(for: request)
+
         let response = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
 
         guard let playSessionId = response.playSessionId else {
@@ -72,32 +74,25 @@ final class PlaybackService {
         }
 
         // Déterminer l'URL de streaming
+        // Logique basée sur Swiftfin: TranscodingURL > Direct Stream
         let streamURL: URL
         let isTranscoding: Bool
 
+        // 1. Si le serveur fournit une URL de transcodage, l'utiliser
         if let transcodingUrl = mediaSource.transcodingUrl {
-            // Transcoding - sous-titres inclus dans le manifest HLS
             guard let fullURL = URL(string: "\(authService.baseURL)\(transcodingUrl)") else {
                 throw JellyfinError.invalidURL
             }
             streamURL = fullURL
             isTranscoding = true
-        } else if let directStreamUrl = mediaSource.directStreamUrl {
-            // Direct Stream
-            guard let fullURL = URL(string: "\(authService.baseURL)\(directStreamUrl)") else {
+        }
+        // 2. Sinon, construire l'URL de Direct Stream (static=true)
+        else {
+            guard let fullURL = buildDirectStreamURL(itemId: itemId, playSessionId: playSessionId) else {
                 throw JellyfinError.invalidURL
             }
             streamURL = fullURL
             isTranscoding = false
-        } else if mediaSource.supportsDirectPlay == true, let path = mediaSource.path {
-            // Direct Play
-            guard let fullURL = URL(string: path) else {
-                throw JellyfinError.invalidURL
-            }
-            streamURL = fullURL
-            isTranscoding = false
-        } else {
-            throw JellyfinError.responseError("Aucune URL de streaming disponible")
         }
 
         return PlaybackResult(
@@ -106,6 +101,27 @@ final class PlaybackService {
             mediaSource: mediaSource,
             isTranscoding: isTranscoding
         )
+    }
+
+    // MARK: - URL Building Helpers
+
+    /// Construit l'URL de Direct Stream/Play pour un média (format Swiftfin)
+    /// URL: /Videos/{itemId}/stream?static=true&mediaSourceId={itemId}&playSessionId=...
+    private func buildDirectStreamURL(itemId: String, playSessionId: String) -> URL? {
+        guard var urlComponents = URLComponents(string: "\(authService.baseURL)/Videos/\(itemId)/stream") else {
+            return nil
+        }
+
+        let queryItems = [
+            URLQueryItem(name: "static", value: "true"),
+            URLQueryItem(name: "mediaSourceId", value: itemId),
+            URLQueryItem(name: "playSessionId", value: playSessionId),
+            URLQueryItem(name: "api_key", value: authService.accessToken),
+            URLQueryItem(name: "deviceId", value: authService.deviceId)
+        ]
+
+        urlComponents.queryItems = queryItems
+        return urlComponents.url
     }
 
     // MARK: - Legacy Streaming URLs (Fallback)
@@ -134,9 +150,9 @@ final class PlaybackService {
             URLQueryItem(name: "TranscodingProtocol", value: "hls")
         ]
 
-        // Paramètres de qualité
-        let effectiveBitrate = quality.maxBitrate ?? 15_000_000
-        let effectiveMaxWidth = quality.maxWidth ?? 1920
+        // Paramètres de qualité - utiliser Maximum pour Auto (favorise Direct Play)
+        let effectiveBitrate = quality.maxBitrate ?? StreamQuality.maximum.rawValue
+        let effectiveMaxWidth = quality.maxWidth ?? 3840
 
         queryItems.append(URLQueryItem(name: "MaxStreamingBitrate", value: "\(effectiveBitrate)"))
         queryItems.append(URLQueryItem(name: "VideoBitrate", value: "\(effectiveBitrate)"))

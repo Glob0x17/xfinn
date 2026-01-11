@@ -2,8 +2,7 @@
 //  PlayerManager.swift
 //  xfinn
 //
-//  Created by Claude on 05/01/2026.
-//  Extracted from MediaDetailView for better separation of concerns.
+//  AVPlayer manager for media playback with progress reporting.
 //
 
 import Foundation
@@ -64,6 +63,12 @@ final class PlayerManager: ObservableObject {
     /// Informations techniques de lecture
     @Published private(set) var playbackTechnicalInfo: PlaybackTechnicalInfo?
 
+    /// Indique si le player est en train de buffering
+    @Published private(set) var isBuffering: Bool = false
+
+    /// Statistiques de buffering pour l'overlay de chargement
+    @Published private(set) var bufferStats: BufferStats = .empty
+
     // MARK: - Public Properties
 
     var callbacks = PlayerManagerCallbacks()
@@ -103,6 +108,7 @@ final class PlayerManager: ObservableObject {
     // MARK: - Private Properties
 
     private var playbackObserver: Any?
+    private var timeControlStatusObserver: NSKeyValueObservation?
     private var playSessionId: String = ""
     private var itemId: String = ""
     private var jellyfinService: JellyfinService?
@@ -110,6 +116,11 @@ final class PlayerManager: ObservableObject {
     private var currentItem: MediaItem?
     private var hasConfiguredSubtitleCallback = false
     private var isStoppingPlayback = false
+
+    // Buffer tracking
+    private var bufferStartTime: Date?
+    private var lastBytesReceived: Int64 = 0
+    private var bufferUpdateTimer: Timer?
 
     // Configuration
     private let progressReportInterval: TimeInterval = 5.0
@@ -287,11 +298,21 @@ final class PlayerManager: ObservableObject {
         playerViewController?.player = nil
         playerViewController = nil
 
+        // Arrêter le timer de buffer et l'observer KVO
+        bufferUpdateTimer?.invalidate()
+        bufferUpdateTimer = nil
+        timeControlStatusObserver?.invalidate()
+        timeControlStatusObserver = nil
+
         player = nil
         currentTime = 0
         isTranscoding = false
         currentBitrate = 0
         playbackTechnicalInfo = nil
+        isBuffering = false
+        bufferStats = .empty
+        bufferStartTime = nil
+        lastBytesReceived = 0
     }
 
     // MARK: - Private Methods
@@ -325,6 +346,9 @@ final class PlayerManager: ObservableObject {
 
             // Observer le statut
             observePlayerItemStatus(playerItem)
+
+            // Observer le buffering
+            observeBufferState(playerItem)
 
             // Configurer la position de départ
             if let position = resumePosition, position > 0 {
@@ -395,6 +419,117 @@ final class PlayerManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private func observeBufferState(_ playerItem: AVPlayerItem) {
+        guard let player = player else { return }
+
+        // Observer timeControlStatus avec KVO direct - plus fiable que Combine dans un Task
+        timeControlStatusObserver = player.observe(\.timeControlStatus, options: [.new, .initial]) { [weak self] player, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+
+                switch player.timeControlStatus {
+                case .waitingToPlayAtSpecifiedRate:
+                    // Le player attend - buffering en cours (seulement si on est en lecture)
+                    if self.state == .playing {
+                        self.isBuffering = true
+                        self.bufferStartTime = Date()
+                        self.startBufferStatsTimer()
+                    }
+                case .playing:
+                    // Le player joue - pas de buffering
+                    self.isBuffering = false
+                    self.stopBufferStatsTimer()
+                case .paused:
+                    // En pause - pas de buffering à afficher
+                    self.isBuffering = false
+                    self.stopBufferStatsTimer()
+                @unknown default:
+                    break
+                }
+            }
+        }
+
+        // Observer l'access log pour les statistiques réseau
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemNewAccessLogEntry,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateBufferStatsFromAccessLog()
+            }
+        }
+    }
+
+    private func startBufferStatsTimer() {
+        stopBufferStatsTimer()
+
+        // Mise à jour des stats toutes les 0.5 secondes
+        bufferUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateBufferStats()
+            }
+        }
+    }
+
+    private func stopBufferStatsTimer() {
+        bufferUpdateTimer?.invalidate()
+        bufferUpdateTimer = nil
+    }
+
+    private func updateBufferStats() {
+        guard let playerItem = player?.currentItem else { return }
+
+        // Calculer le pourcentage de buffer
+        let loadedRanges = playerItem.loadedTimeRanges
+        var bufferedDuration: TimeInterval = 0
+
+        for range in loadedRanges {
+            let timeRange = range.timeRangeValue
+            bufferedDuration += timeRange.duration.seconds
+        }
+
+        // Calculer le pourcentage basé sur le buffer minimum nécessaire (10 secondes)
+        let requiredBuffer: TimeInterval = 10.0
+        let percentage = min((bufferedDuration / requiredBuffer) * 100, 100)
+
+        // Obtenir les stats réseau depuis l'access log
+        var downloadSpeed: Double = 0
+        var totalBytesReceived: Int64 = 0
+
+        if let accessLog = playerItem.accessLog(),
+           let lastEvent = accessLog.events.last {
+            totalBytesReceived = lastEvent.numberOfBytesTransferred
+
+            // Calculer la vitesse depuis le dernier update
+            if lastBytesReceived > 0 {
+                let bytesDelta = totalBytesReceived - lastBytesReceived
+                downloadSpeed = Double(bytesDelta) * 2 // * 2 car on update toutes les 0.5s
+            }
+            lastBytesReceived = totalBytesReceived
+        }
+
+        // Estimer le temps restant
+        var remainingTime: TimeInterval? = nil
+        if downloadSpeed > 0 && percentage < 100 {
+            let remainingPercentage = 100 - percentage
+            let estimatedRemainingBytes = (Double(totalBytesReceived) / percentage) * remainingPercentage
+            remainingTime = estimatedRemainingBytes / downloadSpeed
+        }
+
+        bufferStats = BufferStats(
+            percentage: percentage,
+            downloadSpeed: downloadSpeed,
+            remainingTime: remainingTime,
+            downloadedBytes: totalBytesReceived,
+            totalBytes: nil
+        )
+    }
+
+    private func updateBufferStatsFromAccessLog() {
+        updateBufferStats()
     }
 
     private func setupProgressObserver() {
