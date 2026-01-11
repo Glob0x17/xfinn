@@ -215,3 +215,6 @@
 "error.connect_failed" = "Impossible de se connecter: %@";
 "error.auth_error" = "Échec de l'authentification: %@";
 "error.playback_info" = "Impossible d'obtenir les informations de lecture: %@";
+
+// MARK: - Privacy
+"NSLocalNetworkUsageDescription" = "xfinn a besoin d'accéder à votre réseau local pour découvrir et se connecter à votre serveur Jellyfin.";

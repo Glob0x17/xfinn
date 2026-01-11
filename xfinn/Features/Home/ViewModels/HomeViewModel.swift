@@ -106,8 +106,10 @@ final class HomeViewModel: BaseViewModel {
                 self.resumeItems = items
             }
         } catch {
-            print("[HomeViewModel] Erreur chargement items à reprendre: \(error.localizedDescription)")
-            // Ne pas propager l'erreur - on continue avec les autres données
+            #if DEBUG
+            print("[HomeViewModel] Error loading resume items: \(error.localizedDescription)")
+            #endif
+            // Don't propagate error - continue with other data
         }
     }
 
@@ -118,8 +120,10 @@ final class HomeViewModel: BaseViewModel {
                 self.recentItems = items
             }
         } catch {
-            print("[HomeViewModel] Erreur chargement items récents: \(error.localizedDescription)")
-            // Ne pas propager l'erreur - on continue avec les autres données
+            #if DEBUG
+            print("[HomeViewModel] Error loading recent items: \(error.localizedDescription)")
+            #endif
+            // Don't propagate error - continue with other data
         }
     }
 }

@@ -77,7 +77,9 @@ final class SeriesDetailViewModel: BaseViewModel {
                 self.isLoading = false
             }
         } catch {
-            print("[SeriesDetailViewModel] Erreur chargement saisons: \(error.localizedDescription)")
+            #if DEBUG
+            print("[SeriesDetailViewModel] Error loading seasons: \(error.localizedDescription)")
+            #endif
             self.hasLoaded = false
             self.isLoading = false
         }
@@ -176,7 +178,9 @@ final class SeasonEpisodesViewModel: BaseViewModel {
                 self.isLoading = false
             }
         } catch {
-            print("[SeasonEpisodesViewModel] Erreur chargement épisodes: \(error.localizedDescription)")
+            #if DEBUG
+            print("[SeasonEpisodesViewModel] Error loading episodes: \(error.localizedDescription)")
+            #endif
             self.hasLoaded = false
             self.isLoading = false
         }

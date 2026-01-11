@@ -565,7 +565,9 @@ class ImagePreloader: ObservableObject {
                     self.addToCache(url: url, image: image)
                 }
             } catch {
-                print("[ImagePreloader] Erreur chargement image: \(error.localizedDescription)")
+                #if DEBUG
+                print("[ImagePreloader] Error loading image: \(error.localizedDescription)")
+                #endif
             }
             self.loadingTasks[url] = nil
         }

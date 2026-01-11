@@ -100,7 +100,9 @@ class BaseViewModel: ObservableObject {
                 // Ne pas afficher d'erreur si la tâche a été annulée
                 if !Task.isCancelled {
                     self.setError(error)
-                    print("[ViewModel] Erreur: \(error.localizedDescription)")
+                    #if DEBUG
+                    print("[ViewModel] Error: \(error.localizedDescription)")
+                    #endif
                 }
             }
         }
@@ -126,7 +128,9 @@ class BaseViewModel: ObservableObject {
         } catch {
             if !Task.isCancelled {
                 setError(error)
-                print("[ViewModel] Erreur: \(error.localizedDescription)")
+                #if DEBUG
+                print("[ViewModel] Error: \(error.localizedDescription)")
+                #endif
             }
             return nil
         }
