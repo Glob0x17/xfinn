@@ -86,7 +86,7 @@ struct SeriesDetailView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "tv")
                         .font(.system(size: 18))
-                    Text("Série TV")
+                    Text("series.tv_series".localized)
                         .font(.system(size: 20, weight: .semibold))
                 }
                 .foregroundColor(.appAccent)
@@ -139,7 +139,7 @@ struct SeriesDetailView: View {
                 // Synopsis
                 if let overview = viewModel.series.overview, !overview.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Synopsis")
+                        Text("media.synopsis".localized)
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.appTextPrimary)
                         
@@ -181,7 +181,7 @@ struct SeriesDetailView: View {
             }
             .glowing(color: .appPrimary, radius: 25)
             
-            Text("Chargement des saisons...")
+            Text("series.loading_seasons".localized)
                 .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.appTextSecondary)
         }
@@ -197,11 +197,11 @@ struct SeriesDetailView: View {
                 .foregroundColor(.appTextTertiary)
             
             VStack(spacing: 12) {
-                Text("Aucune saison")
+                Text("series.no_seasons".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Cette série ne contient aucune saison")
+
+                Text("series.no_seasons_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
             }
@@ -230,7 +230,7 @@ struct SeriesDetailView: View {
                 }
                 .glowing(color: .appAccent, radius: 10)
                 
-                Text("Saisons")
+                Text("series.seasons".localized)
                     .font(.system(size: 42, weight: .bold))
                     .foregroundColor(.appTextPrimary)
                 
@@ -335,7 +335,7 @@ struct SeasonCard: View {
                     HStack(spacing: 8) {
                         Image(systemName: "number")
                             .font(.system(size: 14))
-                        Text("Saison \(indexNumber)")
+                        Text("series.season".localized(with: indexNumber))
                             .font(.system(size: 16))
                     }
                     .foregroundColor(.appTextSecondary)
@@ -412,7 +412,7 @@ struct SeasonEpisodesView: View {
             }
             .glowing(color: .appPrimary, radius: 25)
             
-            Text("Chargement des épisodes...")
+            Text("series.loading_episodes".localized)
                 .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.appTextSecondary)
         }
@@ -427,11 +427,11 @@ struct SeasonEpisodesView: View {
                 .foregroundColor(.appTextTertiary)
             
             VStack(spacing: 12) {
-                Text("Aucun épisode")
+                Text("series.no_episodes".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Cette saison ne contient aucun épisode")
+
+                Text("series.no_episodes_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
             }
@@ -523,7 +523,7 @@ struct ModernEpisodeRow: View {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 16))
-                            Text("Vu")
+                            Text("series.watched".localized)
                                 .font(.system(size: 16, weight: .semibold))
                         }
                         .foregroundColor(.white)
@@ -562,7 +562,7 @@ struct ModernEpisodeRow: View {
             VStack(alignment: .leading, spacing: 15) {
                 // Numéro d'épisode
                 if let episodeNumber = episode.indexNumber {
-                    Text("Épisode \(episodeNumber)")
+                    Text("series.episode".localized(with: episodeNumber))
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(.appTextTertiary)
                 }
@@ -599,7 +599,7 @@ struct ModernEpisodeRow: View {
                         }
                         .frame(width: 450)
                         
-                        Text("Reprendre à \(formatDuration(userData.playbackPosition))")
+                        Text("episode.resume_at".localized(with: formatDuration(userData.playbackPosition)))
                             .font(.system(size: 16))
                             .foregroundColor(.appTextTertiary)
                     }

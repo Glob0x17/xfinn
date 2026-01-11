@@ -74,7 +74,7 @@ struct BufferStatsOverlay: View {
             }
 
             // Label "Chargement"
-            Text("Chargement...")
+            Text("loading.default".localized)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white.opacity(0.6))
         }
@@ -118,7 +118,7 @@ struct InitialLoadingOverlay: View {
                     .rotationEffect(.degrees(rotation))
             }
 
-            Text("Connexion...")
+            Text("loading.connecting".localized)
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
         }

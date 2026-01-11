@@ -10,7 +10,7 @@ import SwiftUI
 /// Vue de chargement avec effet glass
 struct GlassLoadingView: View {
     /// Message à afficher sous le spinner
-    var message: String = "Chargement..."
+    var message: String = "loading.default".localized
 
     /// Taille du spinner (small, medium, large)
     var size: LoadingSize = .medium
@@ -102,7 +102,7 @@ struct GlassLoadingView: View {
 
 /// Vue de chargement inline (sans backdrop, pour intégration dans une vue)
 struct InlineLoadingView: View {
-    var message: String = "Chargement..."
+    var message: String = "loading.default".localized
     var tintColor: Color = .appPrimary
 
     var body: some View {

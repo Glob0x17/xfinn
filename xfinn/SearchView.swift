@@ -76,7 +76,7 @@ struct SearchView: View {
                     .font(.system(size: 24))
                     .foregroundColor(.appTextSecondary)
                 
-                TextField("Rechercher films, séries, épisodes...", text: $viewModel.searchQuery)
+                TextField("search.placeholder".localized, text: $viewModel.searchQuery)
                     .font(.system(size: 26, weight: .medium))
                     .foregroundColor(.appTextPrimary)
                     .textFieldStyle(.plain)
@@ -157,11 +157,11 @@ struct SearchView: View {
             }
             
             VStack(spacing: 12) {
-                Text("Rechercher du contenu")
+                Text("search.empty_title".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Tapez pour rechercher parmi vos films,\nséries et épisodes")
+
+                Text("search.empty_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
                     .multilineTextAlignment(.center)
@@ -182,11 +182,11 @@ struct SearchView: View {
                 .foregroundColor(.appTextTertiary)
             
             VStack(spacing: 12) {
-                Text("Aucun résultat")
+                Text("search.no_results".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Essayez avec d'autres mots-clés")
+
+                Text("search.no_results_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
             }
@@ -217,7 +217,7 @@ struct SearchView: View {
             }
             .glowing(color: .appPrimary, radius: 25)
             
-            Text("Recherche en cours...")
+            Text("search.searching".localized)
                 .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.appTextSecondary)
             
@@ -274,7 +274,7 @@ struct FilterPill: View {
                 Image(systemName: filter.icon)
                     .font(.system(size: 18, weight: .semibold))
                 
-                Text(filter.rawValue)
+                Text(filter.displayName)
                     .font(.system(size: 20, weight: .semibold))
             }
             .foregroundColor(isSelected ? .white : .appTextSecondary)

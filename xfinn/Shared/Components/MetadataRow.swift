@@ -145,13 +145,13 @@ struct MediaTypeBadge: View {
     private var displayText: String {
         switch type.lowercased() {
         case "movie":
-            return "Film"
+            return "media_type.movie".localized
         case "series":
-            return "Série"
+            return "media_type.series".localized
         case "episode":
-            return "Épisode"
+            return "media_type.episode".localized
         case "season":
-            return "Saison"
+            return "media_type.season".localized
         default:
             return type
         }

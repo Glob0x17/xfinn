@@ -55,37 +55,37 @@ enum StreamQuality: Int, CaseIterable, Identifiable, Codable {
     var description: String {
         switch self {
         case .auto:
-            return "Test automatique de la connexion"
+            return "quality.auto_desc".localized
         case .maximum:
-            return "Qualité maximale (4K HDR)"
+            return "quality.maximum_desc".localized
         case .mbps120:
-            return "4K HDR"
+            return "quality.4k_hdr".localized
         case .mbps80:
-            return "4K"
+            return "quality.4k".localized
         case .mbps60:
-            return "4K"
+            return "quality.4k".localized
         case .mbps40:
-            return "1080p haute qualité"
+            return "quality.1080p_high".localized
         case .mbps20:
-            return "1080p"
+            return "quality.1080p".localized
         case .mbps15:
-            return "1080p"
+            return "quality.1080p".localized
         case .mbps10:
-            return "1080p"
+            return "quality.1080p".localized
         case .mbps8:
-            return "720p haute qualité"
+            return "quality.720p_high".localized
         case .mbps6:
-            return "720p"
+            return "quality.720p".localized
         case .mbps4:
-            return "480p haute qualité"
+            return "quality.480p_high".localized
         case .mbps3:
-            return "480p"
+            return "quality.480p".localized
         case .kbps1500:
-            return "360p"
+            return "quality.360p".localized
         case .kbps720:
-            return "240p"
+            return "quality.240p".localized
         case .kbps420:
-            return "144p"
+            return "quality.144p".localized
         }
     }
 

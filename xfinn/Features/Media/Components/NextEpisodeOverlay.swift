@@ -31,11 +31,11 @@ struct NextEpisodeOverlay: View {
                 // En-tête avec compte à rebours
                 HStack(alignment: .center, spacing: 20) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Épisode suivant")
+                        Text("next_episode.title".localized)
                             .font(.system(size: 28, weight: .semibold))
                             .foregroundStyle(.white)
-                        
-                        Text("Lecture automatique dans")
+
+                        Text("next_episode.auto_play".localized)
                             .font(.system(size: 18))
                             .foregroundStyle(.white.opacity(0.7))
                     }
@@ -167,7 +167,7 @@ struct NextEpisodeOverlay: View {
                         HStack(spacing: 12) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 20))
-                            Text("Annuler")
+                            Text("common.cancel".localized)
                                 .font(.system(size: 20, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
@@ -181,7 +181,7 @@ struct NextEpisodeOverlay: View {
                         HStack(spacing: 12) {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 20))
-                            Text("Lire maintenant")
+                            Text("next_episode.play_now".localized)
                                 .font(.system(size: 20, weight: .bold))
                         }
                         .frame(maxWidth: .infinity)

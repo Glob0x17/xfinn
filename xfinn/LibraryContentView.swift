@@ -65,7 +65,7 @@ struct LibraryContentView: View {
             }
             .glowing(color: .appPrimary, radius: 25)
             
-            Text("Chargement du contenu...")
+            Text("library.loading_content".localized)
                 .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.appTextSecondary)
         }
@@ -80,11 +80,11 @@ struct LibraryContentView: View {
                 .foregroundColor(.appTextTertiary)
             
             VStack(spacing: 12) {
-                Text("Aucun contenu")
+                Text("library.no_content".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Cette bibliothèque est vide")
+
+                Text("library.empty_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
             }
@@ -102,7 +102,7 @@ struct LibraryContentView: View {
                         .font(.system(size: 48, weight: .bold))
                         .foregroundColor(.appTextPrimary)
                     
-                    Text("\(items.count) élément\(items.count > 1 ? "s" : "")")
+                    Text("library.items_count".localized(with: items.count))
                         .font(.system(size: 24))
                         .foregroundColor(.appTextSecondary)
                 }

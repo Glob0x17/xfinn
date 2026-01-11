@@ -104,7 +104,7 @@ final class LoginViewModel: BaseViewModel {
             }
         } catch {
             withAnimation(AppTheme.standardAnimation) {
-                errorMessage = "Impossible de se connecter: \(error.localizedDescription)"
+                errorMessage = "error.connect_failed".localized(with: error.localizedDescription)
                 isConnecting = false
             }
         }
@@ -122,7 +122,7 @@ final class LoginViewModel: BaseViewModel {
             isConnecting = false
         } catch {
             withAnimation(AppTheme.standardAnimation) {
-                errorMessage = "Échec de l'authentification: \(error.localizedDescription)"
+                errorMessage = "error.auth_error".localized(with: error.localizedDescription)
                 isConnecting = false
             }
         }

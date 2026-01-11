@@ -113,7 +113,7 @@ struct MediaCard: View {
                             Image(systemName: mediaIcon)
                                 .font(.system(size: 50))
                                 .foregroundStyle(Color.appTextTertiary)
-                            Text("Image\nindisponible")
+                            Text("card.image_unavailable".localized)
                                 .font(.caption)
                                 .foregroundStyle(Color.appTextTertiary)
                                 .multilineTextAlignment(.center)
@@ -385,7 +385,7 @@ struct SeasonMediaCard: View {
                     HStack(spacing: 8) {
                         Image(systemName: "number")
                             .font(.system(size: 14))
-                        Text("Saison \(indexNumber)")
+                        Text("card.season".localized(with: indexNumber))
                             .font(.system(size: 16))
                     }
                     .foregroundColor(.appTextSecondary)

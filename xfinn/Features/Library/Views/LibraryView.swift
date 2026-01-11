@@ -34,7 +34,7 @@ struct LibraryView: View {
                 librariesGrid
             }
         }
-        .navigationTitle("Mes Bibliothèques")
+        .navigationTitle("library.my_libraries".localized)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -48,9 +48,9 @@ struct LibraryView: View {
                 }
             }
         }
-        .alert("Erreur", isPresented: $showError) {
+        .alert("common.error".localized, isPresented: $showError) {
             Button("OK", role: .cancel) { }
-            Button("Réessayer") {
+            Button("common.retry".localized) {
                 Task {
                     await loadLibraries()
                 }
@@ -95,7 +95,7 @@ struct LibraryView: View {
             }
             .glowing(color: .appPrimary, radius: 25)
             
-            Text("Chargement des bibliothèques...")
+            Text("library.loading".localized)
                 .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.appTextSecondary)
         }
@@ -127,11 +127,11 @@ struct LibraryView: View {
             }
             
             VStack(spacing: 12) {
-                Text("Aucune bibliothèque")
+                Text("library.no_libraries".localized)
                     .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.appTextPrimary)
-                
-                Text("Aucune bibliothèque n'est disponible\nsur ce serveur")
+
+                Text("library.no_libraries_message".localized)
                     .font(.system(size: 22))
                     .foregroundColor(.appTextSecondary)
                     .multilineTextAlignment(.center)
@@ -146,11 +146,11 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 40) {
                 // En-tête
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Toutes vos bibliothèques")
+                    Text("library.all_libraries".localized)
                         .font(.system(size: 56, weight: .bold)) // 3. Taille adaptée tvOS
                         .foregroundColor(.appTextPrimary)
                     
-                    Text("\(libraries.count) bibliothèque\(libraries.count > 1 ? "s" : "") disponible\(libraries.count > 1 ? "s" : "")")
+                    Text("library.libraries_available".localized(with: libraries.count))
                         .font(.system(size: 28)) // 3. Taille adaptée tvOS
                         .foregroundColor(.appTextSecondary)
                 }
@@ -212,7 +212,7 @@ struct LibraryView: View {
             withAnimation(AppTheme.standardAnimation) {
                 self.hasLoaded = false
                 self.isLoading = false
-                self.errorMessage = "Impossible de charger les bibliothèques.\n\(error.localizedDescription)"
+                self.errorMessage = "\("library.load_error".localized)\n\(error.localizedDescription)"
                 self.showError = true
             }
         }
@@ -258,15 +258,15 @@ extension LibraryItem {
     var typeDisplayName: String {
         switch collectionType?.lowercased() {
         case "movies":
-            return "Films"
+            return "library.type.movies".localized
         case "tvshows":
-            return "Séries"
+            return "library.type.series".localized
         case "music":
-            return "Musique"
+            return "library.type.music".localized
         case "photos":
-            return "Photos"
+            return "library.type.photos".localized
         default:
-            return "Médias"
+            return "library.type.media".localized
         }
     }
     
@@ -391,7 +391,7 @@ struct LibraryCard: View {
                         .font(.system(size: 18)) // 3. Taille adaptée tvOS
                         .foregroundColor(.appTextSecondary)
                     
-                    Text("Bibliothèque \(library.typeDisplayName)")
+                    Text("library.type".localized(with: library.typeDisplayName))
                         .font(.system(size: 22)) // 3. Taille adaptée tvOS
                         .foregroundColor(.appTextSecondary)
                     
@@ -468,7 +468,7 @@ private struct NewBadge: View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.system(size: 18, weight: .bold))
-            Text("Nouveau")
+            Text("common.new".localized)
                 .font(.system(size: 18, weight: .bold))
         }
         .foregroundColor(.white)

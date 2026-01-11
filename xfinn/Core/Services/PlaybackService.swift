@@ -66,11 +66,11 @@ final class PlaybackService {
         let response = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
 
         guard let playSessionId = response.playSessionId else {
-            throw JellyfinError.responseError("Pas de PlaySessionId dans la réponse")
+            throw JellyfinError.responseError("error.no_play_session".localized)
         }
 
         guard let mediaSource = response.mediaSources?.first else {
-            throw JellyfinError.responseError("Pas de MediaSource dans la réponse")
+            throw JellyfinError.responseError("error.no_media_source".localized)
         }
 
         // Déterminer l'URL de streaming
