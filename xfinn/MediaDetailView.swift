@@ -425,8 +425,14 @@ struct MediaDetailView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
             }
 
-            // Note: Les sous-titres sont maintenant gérés nativement via HLSSubtitleInjector
-            // et apparaissent dans le menu CC d'AVPlayerViewController
+            // Overlay de buffering personnalisé (stall pendant la lecture)
+            if playerManager.isBuffering {
+                Color.black.opacity(0.7)
+                    .ignoresSafeArea()
+
+                BufferStatsOverlay(stats: playerManager.bufferStats)
+                    .transition(.opacity.combined(with: .scale))
+            }
 
             if viewModel.showNextEpisodeOverlay {
                 Color.black.opacity(0.4)
@@ -448,6 +454,7 @@ struct MediaDetailView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
+        .animation(.easeInOut(duration: 0.2), value: playerManager.isBuffering)
     }
 
     // MARK: - Alert Buttons
@@ -544,8 +551,7 @@ struct MediaDetailView: View {
         switch state {
         case .ended:
             isPlaybackActive = false
-        case .failed(let message):
-            print("[MediaDetailView] Playback failed: \(message)")
+        case .failed:
             isPlaybackActive = false
         default:
             break
