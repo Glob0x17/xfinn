@@ -106,7 +106,7 @@ struct EpisodeRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 16))
-                    Text("Vu")
+                    Text("series.watched".localized)
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundColor(.white)
@@ -142,7 +142,7 @@ struct EpisodeRow: View {
         VStack(alignment: .leading, spacing: 15) {
             // Numéro d'épisode
             if let episodeNumber = episode.indexNumber {
-                Text("Épisode \(episodeNumber)")
+                Text("series.episode".localized(with: episodeNumber))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.appTextTertiary)
             }
@@ -181,7 +181,7 @@ struct EpisodeRow: View {
             )
             .frame(width: progressWidth)
 
-            Text("Reprendre à \(formatDuration(userData.playbackPosition))")
+            Text("episode.resume_at".localized(with: formatDuration(userData.playbackPosition)))
                 .font(.system(size: 16))
                 .foregroundColor(.appTextTertiary)
         }

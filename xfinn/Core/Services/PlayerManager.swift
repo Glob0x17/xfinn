@@ -191,7 +191,7 @@ final class PlayerManager: ObservableObject {
             )
 
         } catch {
-            state = .failed("Impossible d'obtenir les informations de lecture: \(error.localizedDescription)")
+            state = .failed("error.playback_info".localized(with: error.localizedDescription))
         }
     }
 
@@ -394,7 +394,7 @@ final class PlayerManager: ObservableObject {
             await reportPlaybackStart(resumePosition: resumePosition)
 
         } catch {
-            state = .failed("Erreur de chargement: \(error.localizedDescription)")
+            state = .failed("error.loading".localized(with: error.localizedDescription))
         }
     }
 

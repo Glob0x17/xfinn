@@ -24,7 +24,7 @@ struct ErrorView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(Color.appError)
             
-            Text("Une erreur est survenue")
+            Text("error.occurred".localized)
                 .font(AppTheme.title)
                 .fontWeight(.bold)
             
@@ -38,7 +38,7 @@ struct ErrorView: View {
                 Button {
                     retry()
                 } label: {
-                    Label("Réessayer", systemImage: "arrow.clockwise")
+                    Label("common.retry".localized, systemImage: "arrow.clockwise")
                         .font(AppTheme.headline)
                         .padding(.horizontal, AppTheme.largeSpacing)
                         .padding(.vertical, AppTheme.mediumSpacing)

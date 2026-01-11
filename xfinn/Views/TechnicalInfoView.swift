@@ -43,35 +43,35 @@ struct TechnicalInfoView: View {
             ], spacing: 12) {
                 // Source
                 if let container = info.container {
-                    infoItem(label: "Conteneur", value: container)
+                    infoItem(label: "tech.container".localized, value: container)
                 }
                 if let bitrate = info.sourceBitrateFormatted {
-                    infoItem(label: "Débit source", value: bitrate)
+                    infoItem(label: "tech.source_bitrate".localized, value: bitrate)
                 }
 
                 // Vidéo
                 if let codec = info.videoCodec {
-                    infoItem(label: "Vidéo", value: codec)
+                    infoItem(label: "tech.video".localized, value: codec)
                 }
                 if let resolution = info.videoResolution {
-                    infoItem(label: "Résolution", value: resolution)
+                    infoItem(label: "tech.resolution".localized, value: resolution)
                 }
 
                 // Audio
                 if let codec = info.audioCodec {
-                    infoItem(label: "Audio", value: codec)
+                    infoItem(label: "tech.audio".localized, value: codec)
                 }
                 if let channels = info.audioChannels {
-                    infoItem(label: "Canaux", value: channels)
+                    infoItem(label: "tech.channels".localized, value: channels)
                 }
 
                 // Transcodage
                 if info.isTranscoding {
                     if let videoCodec = info.transcodingVideoCodec {
-                        infoItem(label: "Transcode vidéo", value: videoCodec, highlight: true)
+                        infoItem(label: "tech.video_transcode".localized, value: videoCodec, highlight: true)
                     }
                     if let bitrate = info.transcodingBitrateFormatted {
-                        infoItem(label: "Débit cible", value: bitrate, highlight: true)
+                        infoItem(label: "tech.target_bitrate".localized, value: bitrate, highlight: true)
                     }
                 }
             }
@@ -98,11 +98,11 @@ struct TechnicalInfoView: View {
     private var playMethodSubtitle: String {
         switch info.playMethod {
         case .directPlay:
-            return "Lecture directe sans conversion"
+            return "tech.direct_play".localized
         case .directStream:
-            return "Stream direct (remux)"
+            return "tech.direct_stream".localized
         case .transcode:
-            return "Conversion en temps réel"
+            return "tech.transcoding".localized
         }
     }
 
@@ -126,7 +126,7 @@ final class TechnicalInfoViewController: UIHostingController<TechnicalInfoView> 
 
     init(info: PlaybackTechnicalInfo) {
         super.init(rootView: TechnicalInfoView(info: info))
-        self.title = "Détails techniques"
+        self.title = "tech.details".localized
     }
 
     @MainActor @preconcurrency required dynamic init?(coder aDecoder: NSCoder) {

@@ -94,7 +94,7 @@ struct HomeView: View {
                         // Section "À reprendre"
                         if viewModel.hasResumeItems {
                             MediaCarousel(
-                                title: "À reprendre",
+                                title: "home.continue_watching".localized,
                                 icon: "play.circle.fill",
                                 items: viewModel.resumeItems,
                                 jellyfinService: jellyfinService,
@@ -108,7 +108,7 @@ struct HomeView: View {
                         // Section "Récemment ajoutés"
                         if viewModel.hasRecentItems {
                             MediaCarousel(
-                                title: "Récemment ajoutés",
+                                title: "home.recently_added".localized,
                                 icon: "sparkles",
                                 items: viewModel.recentItems,
                                 jellyfinService: jellyfinService,
@@ -183,7 +183,7 @@ struct HomeView: View {
                             )
                         )
                     
-                    Text("XFINN")
+                    Text("app.name".localized)
                         .font(.system(size: 42, weight: .black, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
@@ -205,7 +205,7 @@ struct HomeView: View {
                         HStack(spacing: 15) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 24))
-                            Text("Rechercher")
+                            Text("home.search".localized)
                                 .font(.system(size: 22, weight: .semibold))
                         }
                         .foregroundStyle(Color.appTextPrimary)
@@ -230,7 +230,7 @@ struct HomeView: View {
                         HStack(spacing: 15) {
                             Image(systemName: "square.grid.2x2.fill")
                                 .font(.system(size: 24))
-                            Text("Bibliothèques")
+                            Text("home.libraries".localized)
                                 .font(.system(size: 22, weight: .semibold))
                         }
                         .foregroundStyle(Color.appTextPrimary)
@@ -276,7 +276,7 @@ struct HomeView: View {
                         .glowing(color: .appPrimary, radius: 15)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Bonjour,")
+                            Text("home.hello".localized)
                                 .font(.system(size: 28, weight: .medium))
                                 .foregroundStyle(Color.appTextSecondary)
                             
@@ -292,7 +292,7 @@ struct HomeView: View {
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Bienvenue")
+                            Text("home.welcome".localized)
                                 .font(.system(size: 48, weight: .bold))
                                 .foregroundStyle(Color.appTextPrimary)
                         }
@@ -304,7 +304,7 @@ struct HomeView: View {
             .padding(.horizontal, 60)
             
             // Sous-titre
-            Text("Que souhaitez-vous regarder aujourd'hui ?")
+            Text("home.what_to_watch".localized)
                 .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(Color.appTextTertiary)
                 .padding(.horizontal, 60)
@@ -337,7 +337,7 @@ struct HomeView: View {
                 }
                 .glowing(color: .appPrimary, radius: 30)
                 
-                Text("Chargement du contenu...")
+                Text("home.loading_content".localized)
                     .font(.system(size: 26, weight: .medium))
                     .foregroundStyle(Color.appTextPrimary)
             }
@@ -483,7 +483,7 @@ struct ModernMediaCard: View {
                                 Image(systemName: "film")
                                     .font(.system(size: 50))
                                     .foregroundStyle(Color.appTextTertiary)
-                                Text("Image\nindisponible")
+                                Text("home.image_unavailable".localized)
                                     .font(.caption)
                                     .foregroundStyle(Color.appTextTertiary)
                                     .multilineTextAlignment(.center)

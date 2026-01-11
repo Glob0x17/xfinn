@@ -136,7 +136,7 @@ struct LoginView: View {
             .opacity(viewModel.animateLogo ? 1.0 : 0.0)
             
             // Titre avec gradient
-            Text("XFINN")
+            Text("app.name".localized)
                 .font(.system(size: 60, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
@@ -190,11 +190,11 @@ struct LoginView: View {
                     .foregroundStyle(AppTheme.primary)
                     .glowing(color: .appPrimary)
                 
-                Text("Connexion au serveur")
+                Text("login.server_connection".localized)
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
-                
-                Text("Entrez l'adresse de votre serveur Jellyfin")
+
+                Text("login.server_prompt".localized)
                     .font(.system(size: 20))
                     .foregroundStyle(Color.appTextSecondary)
             }
@@ -202,12 +202,12 @@ struct LoginView: View {
             
             // Champ URL
             VStack(alignment: .leading, spacing: 12) {
-                Label("URL du serveur", systemImage: "link")
+                Label("login.server_url".localized, systemImage: "link")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                 
                 #if os(tvOS)
-                TextField("192.168.1.100 ou jellyfin.local", text: $viewModel.serverURL)
+                TextField("login.server_placeholder".localized, text: $viewModel.serverURL)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.URL)
                     .keyboardType(.URL)
@@ -225,7 +225,7 @@ struct LoginView: View {
                         Task { await viewModel.connectToServer() }
                     }
                 #else
-                TextField("192.168.1.100 ou jellyfin.local", text: $viewModel.serverURL)
+                TextField("login.server_placeholder".localized, text: $viewModel.serverURL)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.URL)
@@ -246,10 +246,10 @@ struct LoginView: View {
                 #endif
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Tapez simplement l'adresse IP ou le nom de domaine")
+                    Text("login.server_hint".localized)
                         .font(.system(size: 16))
                         .foregroundStyle(Color.appTextTertiary)
-                    Text("Le port 8096 sera ajouté automatiquement")
+                    Text("login.port_hint".localized)
                         .font(.system(size: 16))
                         .foregroundStyle(Color.appTextTertiary)
                 }
@@ -268,7 +268,7 @@ struct LoginView: View {
                     } else {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 28))
-                        Text("Continuer")
+                        Text("common.continue".localized)
                             .font(.system(size: 28, weight: .semibold))
                     }
                 }
@@ -294,11 +294,11 @@ struct LoginView: View {
                     .foregroundStyle(AppTheme.accent)
                     .glowing(color: .appAccent)
                 
-                Text("Authentification")
+                Text("login.authentication".localized)
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
-                
-                Text("Connectez-vous avec vos identifiants")
+
+                Text("login.credentials_prompt".localized)
                     .font(.system(size: 20))
                     .foregroundStyle(Color.appTextSecondary)
             }
@@ -306,11 +306,11 @@ struct LoginView: View {
             
             // Champ nom d'utilisateur
             VStack(alignment: .leading, spacing: 12) {
-                Label("Nom d'utilisateur", systemImage: "person")
+                Label("login.username".localized, systemImage: "person")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
 
-                TextField("Votre nom d'utilisateur", text: $viewModel.username)
+                TextField("login.username_placeholder".localized, text: $viewModel.username)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.username)
@@ -328,11 +328,11 @@ struct LoginView: View {
 
             // Champ mot de passe
             VStack(alignment: .leading, spacing: 12) {
-                Label("Mot de passe", systemImage: "lock.fill")
+                Label("login.password".localized, systemImage: "lock.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
 
-                SecureField("Votre mot de passe", text: $viewModel.password)
+                SecureField("login.password_placeholder".localized, text: $viewModel.password)
                     .textFieldStyle(.plain)
                     .font(.system(size: 28, weight: .medium))
                     .textContentType(.password)
@@ -360,7 +360,7 @@ struct LoginView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 24))
-                        Text("Retour")
+                        Text("common.back".localized)
                             .font(.system(size: 24, weight: .medium))
                     }
                     .foregroundColor(.white)
@@ -382,7 +382,7 @@ struct LoginView: View {
                         } else {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 28))
-                            Text("Se connecter")
+                            Text("login.sign_in".localized)
                                 .font(.system(size: 28, weight: .semibold))
                         }
                     }

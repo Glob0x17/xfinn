@@ -216,19 +216,19 @@ enum JellyfinError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .connectionFailed:
-            return "Impossible de se connecter au serveur. Vérifiez l'URL et votre connexion réseau."
+            return "error.connection_failed".localized
         case .authenticationFailed:
-            return "Échec de l'authentification. Vérifiez vos identifiants."
+            return "error.auth_failed".localized
         case .invalidURL:
-            return "L'URL fournie est invalide."
+            return "error.invalid_url".localized
         case .networkError(let error):
-            return "Erreur réseau : \(error.localizedDescription)"
+            return "error.network".localized(with: error.localizedDescription)
         case .decodingError(let error):
-            return "Erreur de décodage des données : \(error.localizedDescription)"
+            return "error.decoding".localized(with: error.localizedDescription)
         case .serverError(let statusCode):
-            return "Erreur serveur (code \(statusCode))"
+            return "error.server".localized(with: statusCode)
         case .responseError(let message):
-            return "Erreur de réponse : \(message)"
+            return "error.response".localized(with: message)
         }
     }
 }

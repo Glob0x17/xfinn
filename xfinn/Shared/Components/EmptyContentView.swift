@@ -16,12 +16,12 @@ struct EmptyContentView: View {
     
     init(
         icon: String = "tray.fill",
-        title: String = "Aucun contenu",
-        message: String = "Il n'y a rien à afficher pour le moment"
+        title: String = "",
+        message: String = ""
     ) {
         self.icon = icon
-        self.title = title
-        self.message = message
+        self.title = title.isEmpty ? "empty.no_content".localized : title
+        self.message = message.isEmpty ? "empty.no_content_message".localized : message
     }
     
     var body: some View {

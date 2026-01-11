@@ -13,10 +13,19 @@ import Combine
 
 /// Filtre de recherche
 enum SearchFilter: String, CaseIterable {
-    case all = "Tout"
-    case movies = "Films"
-    case series = "Séries"
-    case episodes = "Épisodes"
+    case all
+    case movies
+    case series
+    case episodes
+
+    var displayName: String {
+        switch self {
+        case .all: return "search.filter.all".localized
+        case .movies: return "search.filter.movies".localized
+        case .series: return "search.filter.series".localized
+        case .episodes: return "search.filter.episodes".localized
+        }
+    }
 
     var icon: String {
         switch self {

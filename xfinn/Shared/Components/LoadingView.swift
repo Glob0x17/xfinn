@@ -12,8 +12,8 @@ import SwiftUI
 struct LoadingView: View {
     let message: String
     
-    init(_ message: String = "Chargement...") {
-        self.message = message
+    init(_ message: String = "") {
+        self.message = message.isEmpty ? "loading.default".localized : message
     }
     
     var body: some View {

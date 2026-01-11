@@ -18,34 +18,34 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 // Section Utilisateur
-                Section("Utilisateur") {
+                Section("settings.user".localized) {
                     if let user = jellyfinService.currentUser {
-                        LabeledContent("Nom", value: user.name)
-                        LabeledContent("ID", value: user.id)
+                        LabeledContent("settings.name".localized, value: user.name)
+                        LabeledContent("settings.id".localized, value: user.id)
                     }
                 }
 
                 // Section Serveur
-                Section("Serveur") {
+                Section("settings.server".localized) {
                     if let serverInfo = jellyfinService.serverInfo {
-                        LabeledContent("Nom", value: serverInfo.serverName)
-                        LabeledContent("Version", value: serverInfo.version)
-                        LabeledContent("Système", value: serverInfo.operatingSystem)
+                        LabeledContent("settings.name".localized, value: serverInfo.serverName)
+                        LabeledContent("settings.version".localized, value: serverInfo.version)
+                        LabeledContent("settings.system".localized, value: serverInfo.operatingSystem)
                     }
 
-                    LabeledContent("URL", value: jellyfinService.serverURL)
+                    LabeledContent("settings.url".localized, value: jellyfinService.serverURL)
                 }
 
                 // Section Application
-                Section("Application") {
-                    LabeledContent("Version", value: "1.0.0")
+                Section("settings.application".localized) {
+                    LabeledContent("settings.version".localized, value: "1.0.0")
                     LabeledContent("Build", value: "1")
-                    LabeledContent("Plateforme", value: "tvOS")
+                    LabeledContent("settings.platform".localized, value: "tvOS")
                 }
 
                 // Section Streaming
                 Section {
-                    Picker("Qualité de streaming", selection: $jellyfinService.preferredQuality) {
+                    Picker("settings.streaming_quality".localized, selection: $jellyfinService.preferredQuality) {
                         ForEach(StreamQuality.allCases) { quality in
                             HStack {
                                 Text(quality.displayName)
@@ -61,16 +61,16 @@ struct SettingsView: View {
 
                     // Afficher une description de la qualité sélectionnée
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Qualité sélectionnée: \(jellyfinService.preferredQuality.displayName)")
+                        Text("settings.selected_quality".localized(with: jellyfinService.preferredQuality.displayName))
                             .font(.subheadline)
                         Text(jellyfinService.preferredQuality.description)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text("Streaming")
+                    Text("settings.streaming".localized)
                 } footer: {
-                    Text("Le mode Auto teste automatiquement votre connexion. Pour forcer le transcodage, choisissez un bitrate inférieur à celui de votre fichier source.")
+                    Text("settings.quality_footer".localized)
                 }
 
                 // Section Actions
@@ -78,26 +78,26 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         showLogoutConfirmation = true
                     } label: {
-                        Label("Se déconnecter", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label("settings.sign_out".localized, systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
-            .navigationTitle("Paramètres")
+            .navigationTitle("settings.title".localized)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fermer") {
+                    Button("common.close".localized) {
                         dismiss()
                     }
                 }
             }
-            .alert("Se déconnecter ?", isPresented: $showLogoutConfirmation) {
-                Button("Annuler", role: .cancel) {}
-                Button("Se déconnecter", role: .destructive) {
+            .alert("settings.sign_out_confirm".localized, isPresented: $showLogoutConfirmation) {
+                Button("common.cancel".localized, role: .cancel) {}
+                Button("settings.sign_out".localized, role: .destructive) {
                     jellyfinService.logout()
                     dismiss()
                 }
             } message: {
-                Text("Êtes-vous sûr de vouloir vous déconnecter ?")
+                Text("settings.sign_out_message".localized)
             }
         }
     }

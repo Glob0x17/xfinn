@@ -56,17 +56,17 @@ struct MediaDetailView: View {
             setupAutoPlayIfNeeded()
         }
         .onDisappear(perform: handleOnDisappear)
-        .alert("Qualité de streaming", isPresented: $showQualityPicker) {
+        .alert("media.streaming_quality".localized, isPresented: $showQualityPicker) {
             qualityPickerButtons
         } message: {
-            Text("Choisissez la qualité de streaming.")
+            Text("media.choose_quality".localized)
         }
-        .alert("Sous-titres", isPresented: $showSubtitlePicker) {
+        .alert("media.subtitles".localized, isPresented: $showSubtitlePicker) {
             subtitlePickerButtons
         } message: {
-            Text("Choisissez les sous-titres à afficher.")
+            Text("media.choose_subtitles".localized)
         }
-        .alert("Reprendre la lecture ?", isPresented: $showResumeAlert) {
+        .alert("media.resume_playback".localized, isPresented: $showResumeAlert) {
             resumeAlertButtons
         } message: {
             resumeAlertMessage
@@ -169,7 +169,7 @@ struct MediaDetailView: View {
         HStack(spacing: 10) {
             Image(systemName: typeIcon)
                 .font(.system(size: geometry.size.width * 0.009))
-            Text(viewModel.item.type == "Movie" ? "Film" : "Épisode")
+            Text(viewModel.item.type == "Movie" ? "media.movie".localized : "media.episode".localized)
                 .font(.system(size: geometry.size.width * 0.01, weight: .semibold))
         }
         .foregroundColor(.appPrimary)
@@ -230,7 +230,7 @@ struct MediaDetailView: View {
     private func synopsisView(geometry: GeometryProxy) -> some View {
         if let overview = viewModel.item.overview, !overview.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Synopsis")
+                Text("media.synopsis".localized)
                     .font(.system(size: geometry.size.width * 0.014, weight: .bold))
                     .foregroundColor(.appTextPrimary)
                 Text(overview)
@@ -251,7 +251,7 @@ struct MediaDetailView: View {
         if (playerManager.state == .playing || playerManager.state == .paused),
            let technicalInfo = playerManager.playbackTechnicalInfo {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Lecture en cours")
+                Text("media.now_playing".localized)
                     .font(.system(size: geometry.size.width * 0.014, weight: .bold))
                     .foregroundColor(.appTextPrimary)
 
@@ -322,7 +322,7 @@ struct MediaDetailView: View {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill")
                     .font(.system(size: geometry.size.width * 0.012))
-                Text(viewModel.currentUserData?.played == true ? "Revoir" : "Lire")
+                Text(viewModel.currentUserData?.played == true ? "media.rewatch".localized : "media.play".localized)
                     .font(.system(size: geometry.size.width * 0.013, weight: .semibold))
             }
             .foregroundColor(.black)
@@ -376,7 +376,7 @@ struct MediaDetailView: View {
            userData.playbackPositionTicks > 0,
            let duration = viewModel.item.duration {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Reprendre à \(formatDuration(userData.playbackPosition))")
+                Text("media.resume_at_time".localized(with: formatDuration(userData.playbackPosition)))
                     .font(.system(size: geometry.size.width * 0.01, weight: .medium))
                     .foregroundColor(.appTextSecondary)
 
@@ -396,14 +396,14 @@ struct MediaDetailView: View {
 
     private func seriesInfoSection(seriesName: String, geometry: GeometryProxy) -> some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Série")
+            Text("media.series".localized)
                 .font(.system(size: geometry.size.width * 0.014, weight: .bold))
                 .foregroundColor(.appTextPrimary)
             Text(seriesName)
                 .font(.system(size: geometry.size.width * 0.012))
                 .foregroundColor(.appTextSecondary)
             if let season = viewModel.item.parentIndexNumber, let episode = viewModel.item.indexNumber {
-                Text("Saison \(season), Épisode \(episode)")
+                Text("media.season_episode".localized(with: season, episode))
                     .font(.system(size: geometry.size.width * 0.011))
                     .foregroundColor(.appTextTertiary)
             }
@@ -466,12 +466,12 @@ struct MediaDetailView: View {
                 jellyfinService.preferredQuality = quality
             }
         }
-        Button("Annuler", role: .cancel) {}
+        Button("common.cancel".localized, role: .cancel) {}
     }
 
     @ViewBuilder
     private var subtitlePickerButtons: some View {
-        Button("Aucun") {
+        Button("common.none".localized) {
             viewModel.disableSubtitles()
         }
         ForEach(viewModel.sortedSubtitleStreams) { subtitle in
@@ -479,22 +479,22 @@ struct MediaDetailView: View {
                 viewModel.selectSubtitle(index: subtitle.index, language: subtitle.language)
             }
         }
-        Button("Annuler", role: .cancel) {}
+        Button("common.cancel".localized, role: .cancel) {}
     }
 
     @ViewBuilder
     private var resumeAlertButtons: some View {
-        Button("Continuer") { startPlayback(resumePosition: true) }
-        Button("Reprendre du début") { startPlayback(resumePosition: false) }
-        Button("Annuler", role: .cancel) {}
+        Button("common.continue".localized) { startPlayback(resumePosition: true) }
+        Button("media.start_beginning".localized) { startPlayback(resumePosition: false) }
+        Button("common.cancel".localized, role: .cancel) {}
     }
 
     @ViewBuilder
     private var resumeAlertMessage: some View {
         if let userData = viewModel.currentUserData, userData.playbackPositionTicks > 0 {
-            Text("Voulez-vous reprendre la lecture à \(formatDuration(userData.playbackPosition)) ?")
+            Text("media.resume_at".localized(with: formatDuration(userData.playbackPosition)))
         } else {
-            Text("Voulez-vous reprendre la lecture ?")
+            Text("media.resume_prompt".localized)
         }
     }
 

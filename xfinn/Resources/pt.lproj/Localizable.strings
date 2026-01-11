@@ -1,0 +1,217 @@
+/*
+  Localizable.strings (Portuguese)
+  xfinn
+
+  Created by Dorian Galiana on 11/01/2026.
+  Portuguese localization
+*/
+
+// MARK: - Common
+"common.cancel" = "Cancelar";
+"common.continue" = "Continuar";
+"common.back" = "Voltar";
+"common.close" = "Fechar";
+"common.retry" = "Tentar novamente";
+"common.error" = "Erro";
+"common.loading" = "Carregando...";
+"common.none" = "Nenhum";
+"common.new" = "Nova";
+
+// MARK: - App
+"app.name" = "XFINN";
+
+// MARK: - Login
+"login.server_connection" = "Conexão ao servidor";
+"login.server_prompt" = "Digite o endereço do seu servidor Jellyfin";
+"login.server_url" = "URL do servidor";
+"login.server_placeholder" = "192.168.1.100 ou jellyfin.local";
+"login.server_hint" = "Digite simplesmente o endereço IP ou nome de domínio";
+"login.port_hint" = "A porta 8096 será adicionada automaticamente";
+"login.authentication" = "Autenticação";
+"login.credentials_prompt" = "Entre com suas credenciais";
+"login.username" = "Nome de usuário";
+"login.username_placeholder" = "Seu nome de usuário";
+"login.password" = "Senha";
+"login.password_placeholder" = "Sua senha";
+"login.sign_in" = "Entrar";
+"login.connecting" = "Conectando...";
+
+// MARK: - Home
+"home.search" = "Pesquisar";
+"home.libraries" = "Bibliotecas";
+"home.hello" = "Olá,";
+"home.welcome" = "Bem-vindo";
+"home.what_to_watch" = "O que você quer assistir hoje?";
+"home.continue_watching" = "Continuar assistindo";
+"home.recently_added" = "Adicionados recentemente";
+"home.loading_content" = "Carregando conteúdo...";
+"home.image_unavailable" = "Imagem\nindisponível";
+
+// MARK: - Media Detail
+"media.streaming_quality" = "Qualidade de streaming";
+"media.choose_quality" = "Escolha a qualidade de streaming.";
+"media.subtitles" = "Legendas";
+"media.choose_subtitles" = "Escolha as legendas a exibir.";
+"media.resume_playback" = "Retomar reprodução?";
+"media.resume_prompt" = "Deseja retomar a reprodução?";
+"media.resume_at" = "Deseja retomar a reprodução em %@?";
+"media.start_beginning" = "Começar do início";
+"media.movie" = "Filme";
+"media.episode" = "Episódio";
+"media.synopsis" = "Sinopse";
+"media.now_playing" = "Reproduzindo";
+"media.resume_at_time" = "Retomar em %@";
+"media.rewatch" = "Assistir novamente";
+"media.play" = "Reproduzir";
+"media.series" = "Série";
+"media.season_episode" = "Temporada %d, Episódio %d";
+
+// MARK: - Series Detail
+"series.tv_series" = "Série de TV";
+"series.loading_seasons" = "Carregando temporadas...";
+"series.no_seasons" = "Sem temporadas";
+"series.no_seasons_message" = "Esta série não possui temporadas";
+"series.seasons" = "Temporadas";
+"series.loading_episodes" = "Carregando episódios...";
+"series.no_episodes" = "Sem episódios";
+"series.no_episodes_message" = "Esta temporada não possui episódios";
+"series.season" = "Temporada %d";
+"series.episode" = "Episódio %d";
+"series.watched" = "Assistido";
+
+// MARK: - Search
+"search.placeholder" = "Pesquisar filmes, séries, episódios...";
+"search.empty_title" = "Pesquisar conteúdo";
+"search.empty_message" = "Digite para pesquisar entre seus filmes,\nséries e episódios";
+"search.no_results" = "Sem resultados";
+"search.no_results_message" = "Tente outras palavras-chave";
+"search.searching" = "Pesquisando...";
+
+// MARK: - Library
+"library.my_libraries" = "Minhas Bibliotecas";
+"library.loading" = "Carregando bibliotecas...";
+"library.no_libraries" = "Sem bibliotecas";
+"library.no_libraries_message" = "Nenhuma biblioteca disponível\nneste servidor";
+"library.all_libraries" = "Todas as suas bibliotecas";
+"library.type" = "Biblioteca %@";
+"library.loading_content" = "Carregando conteúdo...";
+"library.no_content" = "Sem conteúdo";
+"library.empty_message" = "Esta biblioteca está vazia";
+
+// MARK: - Settings
+"settings.title" = "Configurações";
+"settings.user" = "Usuário";
+"settings.name" = "Nome";
+"settings.id" = "ID";
+"settings.server" = "Servidor";
+"settings.version" = "Versão";
+"settings.system" = "Sistema";
+"settings.url" = "URL";
+"settings.application" = "Aplicativo";
+"settings.platform" = "Plataforma";
+"settings.streaming_quality" = "Qualidade de streaming";
+"settings.selected_quality" = "Qualidade selecionada: %@";
+"settings.streaming" = "Streaming";
+"settings.quality_footer" = "O modo Auto testa automaticamente sua conexão. Para forçar a transcodificação, escolha um bitrate inferior ao do seu arquivo fonte.";
+"settings.sign_out" = "Sair";
+"settings.sign_out_confirm" = "Sair?";
+"settings.sign_out_message" = "Tem certeza de que deseja sair?";
+
+// MARK: - Next Episode
+"next_episode.title" = "Próximo episódio";
+"next_episode.auto_play" = "Reprodução automática em";
+"next_episode.play_now" = "Reproduzir agora";
+
+// MARK: - Technical Info
+"tech.container" = "Container";
+"tech.source_bitrate" = "Bitrate fonte";
+"tech.video" = "Vídeo";
+"tech.resolution" = "Resolução";
+"tech.audio" = "Áudio";
+"tech.channels" = "Canais";
+"tech.video_transcode" = "Transcodificação vídeo";
+"tech.target_bitrate" = "Bitrate alvo";
+"tech.direct_play" = "Reprodução direta sem conversão";
+"tech.direct_stream" = "Stream direto (remux)";
+"tech.transcoding" = "Conversão em tempo real";
+"tech.details" = "Detalhes técnicos";
+
+// MARK: - Stream Quality
+"quality.auto" = "Auto";
+"quality.auto_desc" = "Teste automático de conexão";
+"quality.maximum" = "Máximo";
+"quality.maximum_desc" = "Qualidade máxima (4K HDR)";
+"quality.4k_hdr" = "4K HDR";
+"quality.4k" = "4K";
+"quality.1080p_high" = "1080p alta qualidade";
+"quality.1080p" = "1080p";
+"quality.720p_high" = "720p alta qualidade";
+"quality.720p" = "720p";
+"quality.480p_high" = "480p alta qualidade";
+"quality.480p" = "480p";
+"quality.360p" = "360p";
+"quality.240p" = "240p";
+"quality.144p" = "144p";
+
+// MARK: - Error States
+"error.occurred" = "Ocorreu um erro";
+"error.generic" = "Ocorreu um erro";
+
+// MARK: - Media Card
+"card.season" = "Temporada %d";
+"card.image_unavailable" = "Imagem\nindisponível";
+
+// MARK: - Episode Row
+"episode.resume_at" = "Retomar em %@";
+
+// MARK: - Loading States
+"loading.default" = "Carregando...";
+"loading.connecting" = "Conectando...";
+"loading.searching" = "Pesquisando...";
+"loading.content" = "Carregando conteúdo...";
+
+// MARK: - Library Types
+"library.type.movies" = "Filmes";
+"library.type.series" = "Séries";
+"library.type.music" = "Música";
+"library.type.photos" = "Fotos";
+"library.type.media" = "Mídia";
+
+// MARK: - Library Counts
+"library.items_count" = "%d item(ns)";
+"library.libraries_available" = "%d biblioteca(s) disponível(is)";
+"library.load_error" = "Não foi possível carregar as bibliotecas.";
+
+// MARK: - Search Filters
+"search.filter.all" = "Tudo";
+"search.filter.movies" = "Filmes";
+"search.filter.series" = "Séries";
+"search.filter.episodes" = "Episódios";
+
+// MARK: - Empty States
+"empty.no_content" = "Sem conteúdo";
+"empty.no_content_message" = "Não há nada para exibir no momento";
+
+// MARK: - Media Types
+"media_type.movie" = "Filme";
+"media_type.series" = "Série";
+"media_type.episode" = "Episódio";
+"media_type.season" = "Temporada";
+
+// MARK: - Subtitles
+"subtitles.none" = "Nenhuma";
+
+// MARK: - Error Messages
+"error.connection_failed" = "Não foi possível conectar ao servidor. Verifique a URL e sua conexão de rede.";
+"error.auth_failed" = "Falha na autenticação. Verifique suas credenciais.";
+"error.invalid_url" = "A URL fornecida é inválida.";
+"error.network" = "Erro de rede: %@";
+"error.decoding" = "Erro ao decodificar dados: %@";
+"error.server" = "Erro do servidor (código %d)";
+"error.response" = "Erro de resposta: %@";
+"error.loading" = "Erro de carregamento: %@";
+"error.no_play_session" = "Sem PlaySessionId na resposta";
+"error.no_media_source" = "Sem MediaSource na resposta";
+"error.connect_failed" = "Não foi possível conectar: %@";
+"error.auth_error" = "Erro de autenticação: %@";
+"error.playback_info" = "Não foi possível obter as informações de reprodução: %@";

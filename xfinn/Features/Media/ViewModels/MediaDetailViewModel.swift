@@ -103,7 +103,7 @@ final class MediaDetailViewModel: BaseViewModel {
            let subtitle = item.subtitleStreams.first(where: { $0.index == index }) {
             return subtitle.displayName
         }
-        return "Aucun"
+        return "subtitles.none".localized
     }
 
     /// Flux de sous-titres triés (non-forcés en premier)

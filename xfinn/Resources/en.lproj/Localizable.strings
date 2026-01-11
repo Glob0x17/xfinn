@@ -1,0 +1,217 @@
+/*
+  Localizable.strings (English)
+  xfinn
+
+  Created by Dorian Galiana on 11/01/2026.
+  English localization
+*/
+
+// MARK: - Common
+"common.cancel" = "Cancel";
+"common.continue" = "Continue";
+"common.back" = "Back";
+"common.close" = "Close";
+"common.retry" = "Retry";
+"common.error" = "Error";
+"common.loading" = "Loading...";
+"common.none" = "None";
+"common.new" = "New";
+
+// MARK: - App
+"app.name" = "XFINN";
+
+// MARK: - Login
+"login.server_connection" = "Server Connection";
+"login.server_prompt" = "Enter your Jellyfin server address";
+"login.server_url" = "Server URL";
+"login.server_placeholder" = "192.168.1.100 or jellyfin.local";
+"login.server_hint" = "Just type the IP address or domain name";
+"login.port_hint" = "Port 8096 will be added automatically";
+"login.authentication" = "Authentication";
+"login.credentials_prompt" = "Sign in with your credentials";
+"login.username" = "Username";
+"login.username_placeholder" = "Your username";
+"login.password" = "Password";
+"login.password_placeholder" = "Your password";
+"login.sign_in" = "Sign In";
+"login.connecting" = "Connecting...";
+
+// MARK: - Home
+"home.search" = "Search";
+"home.libraries" = "Libraries";
+"home.hello" = "Hello,";
+"home.welcome" = "Welcome";
+"home.what_to_watch" = "What would you like to watch today?";
+"home.continue_watching" = "Continue Watching";
+"home.recently_added" = "Recently Added";
+"home.loading_content" = "Loading content...";
+"home.image_unavailable" = "Image\nunavailable";
+
+// MARK: - Media Detail
+"media.streaming_quality" = "Streaming Quality";
+"media.choose_quality" = "Choose streaming quality.";
+"media.subtitles" = "Subtitles";
+"media.choose_subtitles" = "Choose subtitles to display.";
+"media.resume_playback" = "Resume Playback?";
+"media.resume_prompt" = "Would you like to resume playback?";
+"media.resume_at" = "Would you like to resume playback at %@?";
+"media.start_beginning" = "Start from Beginning";
+"media.movie" = "Movie";
+"media.episode" = "Episode";
+"media.synopsis" = "Synopsis";
+"media.now_playing" = "Now Playing";
+"media.resume_at_time" = "Resume at %@";
+"media.rewatch" = "Rewatch";
+"media.play" = "Play";
+"media.series" = "Series";
+"media.season_episode" = "Season %d, Episode %d";
+
+// MARK: - Series Detail
+"series.tv_series" = "TV Series";
+"series.loading_seasons" = "Loading seasons...";
+"series.no_seasons" = "No Seasons";
+"series.no_seasons_message" = "This series has no seasons";
+"series.seasons" = "Seasons";
+"series.loading_episodes" = "Loading episodes...";
+"series.no_episodes" = "No Episodes";
+"series.no_episodes_message" = "This season has no episodes";
+"series.season" = "Season %d";
+"series.episode" = "Episode %d";
+"series.watched" = "Watched";
+
+// MARK: - Search
+"search.placeholder" = "Search movies, series, episodes...";
+"search.empty_title" = "Search Content";
+"search.empty_message" = "Type to search among your movies,\nseries and episodes";
+"search.no_results" = "No Results";
+"search.no_results_message" = "Try different keywords";
+"search.searching" = "Searching...";
+
+// MARK: - Library
+"library.my_libraries" = "My Libraries";
+"library.loading" = "Loading libraries...";
+"library.no_libraries" = "No Libraries";
+"library.no_libraries_message" = "No libraries available\non this server";
+"library.all_libraries" = "All your libraries";
+"library.type" = "%@ Library";
+"library.loading_content" = "Loading content...";
+"library.no_content" = "No Content";
+"library.empty_message" = "This library is empty";
+
+// MARK: - Settings
+"settings.title" = "Settings";
+"settings.user" = "User";
+"settings.name" = "Name";
+"settings.id" = "ID";
+"settings.server" = "Server";
+"settings.version" = "Version";
+"settings.system" = "System";
+"settings.url" = "URL";
+"settings.application" = "Application";
+"settings.platform" = "Platform";
+"settings.streaming_quality" = "Streaming Quality";
+"settings.selected_quality" = "Selected quality: %@";
+"settings.streaming" = "Streaming";
+"settings.quality_footer" = "Auto mode automatically tests your connection. To force transcoding, choose a bitrate lower than your source file.";
+"settings.sign_out" = "Sign Out";
+"settings.sign_out_confirm" = "Sign Out?";
+"settings.sign_out_message" = "Are you sure you want to sign out?";
+
+// MARK: - Next Episode
+"next_episode.title" = "Next Episode";
+"next_episode.auto_play" = "Auto-play in";
+"next_episode.play_now" = "Play Now";
+
+// MARK: - Technical Info
+"tech.container" = "Container";
+"tech.source_bitrate" = "Source Bitrate";
+"tech.video" = "Video";
+"tech.resolution" = "Resolution";
+"tech.audio" = "Audio";
+"tech.channels" = "Channels";
+"tech.video_transcode" = "Video Transcode";
+"tech.target_bitrate" = "Target Bitrate";
+"tech.direct_play" = "Direct playback, no conversion";
+"tech.direct_stream" = "Direct stream (remux)";
+"tech.transcoding" = "Real-time conversion";
+"tech.details" = "Technical Details";
+
+// MARK: - Stream Quality
+"quality.auto" = "Auto";
+"quality.auto_desc" = "Automatic connection test";
+"quality.maximum" = "Maximum";
+"quality.maximum_desc" = "Maximum quality (4K HDR)";
+"quality.4k_hdr" = "4K HDR";
+"quality.4k" = "4K";
+"quality.1080p_high" = "1080p High Quality";
+"quality.1080p" = "1080p";
+"quality.720p_high" = "720p High Quality";
+"quality.720p" = "720p";
+"quality.480p_high" = "480p High Quality";
+"quality.480p" = "480p";
+"quality.360p" = "360p";
+"quality.240p" = "240p";
+"quality.144p" = "144p";
+
+// MARK: - Error States
+"error.occurred" = "An error occurred";
+"error.generic" = "An error occurred";
+
+// MARK: - Media Card
+"card.season" = "Season %d";
+"card.image_unavailable" = "Image\nunavailable";
+
+// MARK: - Episode Row
+"episode.resume_at" = "Resume at %@";
+
+// MARK: - Loading States
+"loading.default" = "Loading...";
+"loading.connecting" = "Connecting...";
+"loading.searching" = "Searching...";
+"loading.content" = "Loading content...";
+
+// MARK: - Library Types
+"library.type.movies" = "Movies";
+"library.type.series" = "Series";
+"library.type.music" = "Music";
+"library.type.photos" = "Photos";
+"library.type.media" = "Media";
+
+// MARK: - Library Counts
+"library.items_count" = "%d item(s)";
+"library.libraries_available" = "%d library(ies) available";
+"library.load_error" = "Unable to load libraries.";
+
+// MARK: - Search Filters
+"search.filter.all" = "All";
+"search.filter.movies" = "Movies";
+"search.filter.series" = "Series";
+"search.filter.episodes" = "Episodes";
+
+// MARK: - Empty States
+"empty.no_content" = "No content";
+"empty.no_content_message" = "There is nothing to display at the moment";
+
+// MARK: - Media Types
+"media_type.movie" = "Movie";
+"media_type.series" = "Series";
+"media_type.episode" = "Episode";
+"media_type.season" = "Season";
+
+// MARK: - Subtitles
+"subtitles.none" = "None";
+
+// MARK: - Error Messages
+"error.connection_failed" = "Unable to connect to the server. Please check the URL and your network connection.";
+"error.auth_failed" = "Authentication failed. Please check your credentials.";
+"error.invalid_url" = "The provided URL is invalid.";
+"error.network" = "Network error: %@";
+"error.decoding" = "Data decoding error: %@";
+"error.server" = "Server error (code %d)";
+"error.response" = "Response error: %@";
+"error.loading" = "Loading error: %@";
+"error.no_play_session" = "No PlaySessionId in response";
+"error.no_media_source" = "No MediaSource in response";
+"error.connect_failed" = "Unable to connect: %@";
+"error.auth_error" = "Authentication failed: %@";
+"error.playback_info" = "Unable to get playback information: %@";
