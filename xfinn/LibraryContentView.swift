@@ -18,12 +18,16 @@ struct LibraryContentView: View {
     init(library: LibraryItem, jellyfinService: JellyfinService) {
         self.library = library
         self.jellyfinService = jellyfinService
+        #if DEBUG
         print("🔵 LibraryContentView INIT for: \(library.name) [ID: \(library.id)]")
+        #endif
     }
-    
+
     var body: some View {
+        #if DEBUG
         let _ = print("🎨 LibraryContentView body evaluated - isLoading: \(isLoading), items count: \(items.count)")
-        
+        #endif
+
         return ZStack {
             // Background
             AppTheme.backgroundGradient
@@ -40,7 +44,9 @@ struct LibraryContentView: View {
         .navigationTitle(library.name)
         .task {
             // Charger à chaque fois (task se relance quand la vue change grâce à .id())
+            #if DEBUG
             print("📡 Task started for: \(library.name) [ID: \(library.id)]")
+            #endif
             await loadContent()
         }
     }
@@ -164,19 +170,25 @@ struct LibraryContentView: View {
     @MainActor
     private func loadContent() async {
         isLoading = true
-        
+
+        #if DEBUG
         print("📡 Fetching items for: \(library.name) [ID: \(library.id)]")
+        #endif
         do {
             let loadedItems = try await jellyfinService.getItems(parentId: library.id)
+            #if DEBUG
             print("✅ Loaded \(loadedItems.count) items for: \(library.name)")
-            
+            #endif
+
             withAnimation(AppTheme.standardAnimation) {
                 self.items = loadedItems
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("❌ Error loading content for \(library.name): \(error)")
-            print("   ℹ️ Details de l'erreur: \(error.localizedDescription)")
+            print("   ℹ️ Details: \(error.localizedDescription)")
+            #endif
             self.isLoading = false
         }
     }

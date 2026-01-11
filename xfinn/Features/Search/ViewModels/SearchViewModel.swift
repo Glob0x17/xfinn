@@ -127,7 +127,9 @@ final class SearchViewModel: BaseViewModel {
                 self.isSearching = false
             }
         } catch {
-            print("[SearchViewModel] Erreur recherche '\(searchQuery)': \(error.localizedDescription)")
+            #if DEBUG
+            print("[SearchViewModel] Search error '\(searchQuery)': \(error.localizedDescription)")
+            #endif
             withAnimation(AppTheme.standardAnimation) {
                 self.isSearching = false
             }
