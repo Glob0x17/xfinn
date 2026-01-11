@@ -70,3 +70,7 @@ AppIcons/
 *.p12
 *.mobileprovision
 Secrets/
+
+# Internal documentation
+xfinn/Documentation/
+xfinn/Docs/
