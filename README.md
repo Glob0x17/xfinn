@@ -48,7 +48,7 @@ A beautiful native tvOS client for Jellyfin media servers. Stream your personal 
 
 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/xfinn.git
+git clone https://github.com/Glob0x17/xfinn.git
 ```
 
 2. Open the project in Xcode
