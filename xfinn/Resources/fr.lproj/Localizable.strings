@@ -52,6 +52,8 @@
 "media.choose_quality" = "Choisissez la qualité de streaming.";
 "media.subtitles" = "Sous-titres";
 "media.choose_subtitles" = "Choisissez les sous-titres à afficher.";
+"media.audio_track" = "Piste audio";
+"media.choose_audio" = "Choisir la piste audio.";
 "media.resume_playback" = "Reprendre la lecture ?";
 "media.resume_prompt" = "Voulez-vous reprendre la lecture ?";
 "media.resume_at" = "Voulez-vous reprendre la lecture à %@ ?";
@@ -200,6 +202,9 @@
 
 // MARK: - Subtitles
 "subtitles.none" = "Aucun";
+
+// MARK: - Audio
+"audio.default" = "Par défaut";
 
 // MARK: - Error Messages
 "error.connection_failed" = "Impossible de se connecter au serveur. Vérifiez l'URL et votre connexion réseau.";

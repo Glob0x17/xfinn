@@ -158,8 +158,8 @@ class JellyfinService: ObservableObject {
 
     /// Obtient les informations de lecture via l'API PlaybackInfo avec DeviceProfile
     /// C'est la méthode recommandée car elle gère les sous-titres nativement via HLS
-    func getPlaybackInfo(itemId: String, quality: StreamQuality = .auto) async throws -> PlaybackResult {
-        try await playbackService.getPlaybackInfo(itemId: itemId, quality: quality)
+    func getPlaybackInfo(itemId: String, quality: StreamQuality = .auto, audioStreamIndex: Int? = nil) async throws -> PlaybackResult {
+        try await playbackService.getPlaybackInfo(itemId: itemId, quality: quality, audioStreamIndex: audioStreamIndex)
     }
 
     /// Legacy: Génère directement l'URL de streaming (ne gère pas les sous-titres natifs)

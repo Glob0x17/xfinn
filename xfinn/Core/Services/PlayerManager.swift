@@ -53,6 +53,7 @@ final class PlayerManager: ObservableObject {
     @Published private(set) var currentTime: TimeInterval = 0
     @Published private(set) var duration: TimeInterval = 0
     @Published var selectedSubtitleIndex: Int?
+    @Published var selectedAudioIndex: Int?
 
     /// Indique si le contenu est transcodé ou en lecture directe
     @Published private(set) var isTranscoding: Bool = false
@@ -113,7 +114,9 @@ final class PlayerManager: ObservableObject {
     private var itemId: String = ""
     private var jellyfinService: JellyfinService?
     private var subtitleStreams: [MediaStream] = []
+    private var audioStreams: [MediaStream] = []
     private var currentItem: MediaItem?
+    private var currentQuality: StreamQuality = .auto
     private var hasConfiguredSubtitleCallback = false
     private var isStoppingPlayback = false
 
@@ -147,6 +150,7 @@ final class PlayerManager: ObservableObject {
         item: MediaItem,
         quality: StreamQuality,
         resumePosition: TimeInterval?,
+        audioIndex: Int?,
         subtitleIndex: Int?,
         jellyfinService: JellyfinService
     ) async {
@@ -156,8 +160,11 @@ final class PlayerManager: ObservableObject {
         self.jellyfinService = jellyfinService
         self.itemId = item.id
         self.currentItem = item
+        self.currentQuality = quality
         self.selectedSubtitleIndex = subtitleIndex
+        self.selectedAudioIndex = audioIndex
         self.subtitleStreams = item.subtitleStreams
+        self.audioStreams = item.audioStreams
         self.duration = item.duration ?? 0
 
         state = .loading
@@ -169,7 +176,8 @@ final class PlayerManager: ObservableObject {
         do {
             let playbackResult = try await jellyfinService.getPlaybackInfo(
                 itemId: item.id,
-                quality: quality
+                quality: quality,
+                audioStreamIndex: audioIndex
             )
 
             self.playSessionId = playbackResult.playSessionId
@@ -313,6 +321,7 @@ final class PlayerManager: ObservableObject {
         bufferStats = .empty
         bufferStartTime = nil
         lastBytesReceived = 0
+        audioStreams = []
     }
 
     // MARK: - Private Methods
@@ -363,10 +372,49 @@ final class PlayerManager: ObservableObject {
             controller.allowsPictureInPicturePlayback = true
 
             #if os(tvOS)
-            // Ajouter le panneau d'informations techniques
+            // Ajouter les panneaux d'informations personnalisés
+            var customVCs: [UIViewController] = []
+
+            // Panneau d'informations techniques
             if let technicalInfo = self.playbackTechnicalInfo {
                 let technicalInfoVC = TechnicalInfoViewController(info: technicalInfo)
-                controller.customInfoViewControllers = [technicalInfoVC]
+                customVCs.append(technicalInfoVC)
+            }
+
+            // Panneau de sélection de piste audio (si plusieurs pistes disponibles)
+            if audioStreams.count > 1 {
+                let audioVC = AudioTrackSelectionViewController(
+                    audioStreams: audioStreams,
+                    selectedIndex: selectedAudioIndex,
+                    onTrackSelected: { [weak self] index in
+                        guard let self = self else { return }
+                        Task { @MainActor in
+                            if self.selectedAudioIndex == index { return }
+                            
+                            self.selectedAudioIndex = index
+                            
+                            // Stream mit der neuen Tonspur an aktueller Position neu laden
+                            // Da die Spuren oft keine Meta-Daten in der Datei haben, ist 
+                            // das der zuverlässigste Weg, um den Track sicher zu wechseln.
+                            if let item = self.currentItem, let service = self.jellyfinService {
+                                let position = self.currentTime
+                                await self.startPlayback(
+                                    item: item,
+                                    quality: self.currentQuality,
+                                    resumePosition: position,
+                                    audioIndex: index,
+                                    subtitleIndex: self.selectedSubtitleIndex,
+                                    jellyfinService: service
+                                )
+                            }
+                        }
+                    }
+                )
+                customVCs.append(audioVC)
+            }
+
+            if !customVCs.isEmpty {
+                controller.customInfoViewControllers = customVCs
             }
             #endif
 
@@ -406,6 +454,11 @@ final class PlayerManager: ObservableObject {
                     case .readyToPlay:
                         // Les sous-titres sont gérés nativement par le serveur via le manifest HLS
                         // Ils apparaissent automatiquement dans le menu CC d'AVPlayerViewController
+
+                        // Audio-Track konfigurieren via AVMediaSelectionGroup
+                        if let audioIndex = self.selectedAudioIndex {
+                            self.configureAudioTrack(for: playerItem, preferredIndex: audioIndex)
+                        }
                         break
                     case .failed:
                         if let error = playerItem.error {
@@ -665,4 +718,48 @@ final class PlayerManager: ObservableObject {
     // Les sous-titres sont gérés nativement par le serveur Jellyfin
     // via le DeviceProfile avec enableSubtitlesInManifest: true
     // Le menu CC natif d'AVPlayerViewController affiche toutes les pistes
+
+    // MARK: - Audio Track Configuration
+
+    /// Konfiguriert den gewünschten Audio-Track über AVMediaSelectionGroup
+    private func configureAudioTrack(for playerItem: AVPlayerItem, preferredIndex: Int) {
+        Task {
+            guard let asset = playerItem.asset as? AVURLAsset else { return }
+
+            do {
+                // Media Selection Group für Audio laden
+                if let group = try await asset.loadMediaSelectionGroup(for: .audible) {
+                    let options = group.options
+
+                    // Versuche den Track anhand der Sprache zu finden
+                    if let matchingAudioStream = audioStreams.first(where: { $0.index == preferredIndex }),
+                       let lang = matchingAudioStream.language {
+                        // Nach Sprache matchen
+                        let locale = Locale(identifier: lang)
+                        let matchingOptions = AVMediaSelectionGroup.mediaSelectionOptions(
+                            from: options,
+                            with: locale
+                        )
+                        if let option = matchingOptions.first {
+                            await MainActor.run {
+                                playerItem.select(option, in: group)
+                            }
+                            return
+                        }
+                    }
+
+                    // Fallback: Nach Position in der Audio-Stream-Liste matchen
+                    let audioStreamIndices = audioStreams.map { $0.index }
+                    if let position = audioStreamIndices.firstIndex(of: preferredIndex),
+                       position < options.count {
+                        await MainActor.run {
+                            playerItem.select(options[position], in: group)
+                        }
+                    }
+                }
+            } catch {
+                print("⚠️ Fehler beim Konfigurieren des Audio-Tracks: \(error)")
+            }
+        }
+    }
 }

@@ -28,6 +28,12 @@ final class MediaDetailViewModel: BaseViewModel {
     /// Index du sous-titre sélectionné
     @Published var selectedSubtitleIndex: Int?
 
+    /// Index der ausgewählten Audio-Spur
+    @Published var selectedAudioIndex: Int?
+
+    /// Bevorzugte Audio-Sprache
+    @Published var preferredAudioLanguage: String?
+
     /// Langue de sous-titre préférée
     @Published var preferredSubtitleLanguage: String?
 
@@ -121,6 +127,36 @@ final class MediaDetailViewModel: BaseViewModel {
         !item.subtitleStreams.isEmpty
     }
 
+    // MARK: - Audio Computed Properties
+
+    /// Anzeigename der ausgewählten Audio-Spur
+    var selectedAudioDisplayName: String {
+        if let index = selectedAudioIndex,
+           let audio = item.audioStreams.first(where: { $0.index == index }) {
+            return audio.displayName
+        }
+        // Fallback: Default-Track oder erster Track
+        if let defaultTrack = item.audioStreams.first(where: { $0.isDefault == true }) {
+            return defaultTrack.displayName
+        }
+        return item.audioStreams.first?.displayName ?? "audio.default".localized
+    }
+
+    /// Sortierte Audio-Streams (Default zuerst, dann nach Sprache)
+    var sortedAudioStreams: [MediaStream] {
+        item.audioStreams.sorted { s1, s2 in
+            let isDefault1 = s1.isDefault ?? false
+            let isDefault2 = s2.isDefault ?? false
+            if isDefault1 != isDefault2 { return isDefault1 }
+            return s1.displayName < s2.displayName
+        }
+    }
+
+    /// Ob mehrere Audio-Spuren verfügbar sind
+    var hasMultipleAudioTracks: Bool {
+        item.audioStreams.count > 1
+    }
+
     // MARK: - Initialization
 
     init(item: MediaItem, jellyfinService: JellyfinService) {
@@ -143,6 +179,10 @@ final class MediaDetailViewModel: BaseViewModel {
         // Charger les préférences de sous-titres
         loadSubtitlePreferences()
         autoSelectSubtitles()
+
+        // Audio-Präferenzen laden und Auto-Select
+        loadAudioPreferences()
+        autoSelectAudio()
 
         // Rafraîchir les données utilisateur
         await refreshUserData()
@@ -219,6 +259,44 @@ final class MediaDetailViewModel: BaseViewModel {
     /// Désactive les sous-titres
     func disableSubtitles() {
         selectSubtitle(index: nil, language: nil)
+    }
+
+    // MARK: - Audio Track Management
+
+    /// Lädt Audio-Präferenzen aus UserDefaults
+    func loadAudioPreferences() {
+        if let savedLanguage = UserDefaults.standard.string(forKey: "preferredAudioLanguage") {
+            preferredAudioLanguage = savedLanguage
+        }
+    }
+
+    /// Wählt automatisch die Audio-Spur basierend auf Benutzer-Präferenzen
+    func autoSelectAudio() {
+        // Bevorzugte Sprache prüfen
+        if let preferredLanguage = preferredAudioLanguage,
+           let matching = item.audioStreams.first(where: {
+               $0.language?.lowercased() == preferredLanguage.lowercased()
+           }) {
+            selectedAudioIndex = matching.index
+            return
+        }
+
+        // Sonst: Default-Track des Servers verwenden
+        if let defaultTrack = item.audioStreams.first(where: { $0.isDefault == true }) {
+            selectedAudioIndex = defaultTrack.index
+        } else {
+            selectedAudioIndex = item.audioStreams.first?.index
+        }
+    }
+
+    /// Setzt die ausgewählte Audio-Spur
+    func selectAudioTrack(index: Int, language: String?) {
+        selectedAudioIndex = index
+        preferredAudioLanguage = language
+
+        if let lang = language {
+            UserDefaults.standard.set(lang, forKey: "preferredAudioLanguage")
+        }
     }
 
     // MARK: - Autoplay Management

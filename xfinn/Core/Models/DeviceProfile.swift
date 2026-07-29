@@ -297,6 +297,8 @@ struct PlaybackInfoRequest: Codable {
     var mediaSourceId: String?
     var deviceProfile: DeviceProfile?
     var autoOpenLiveStream: Bool?
+    var audioStreamIndex: Int?
+    var subtitleStreamIndex: Int?
 
     enum CodingKeys: String, CodingKey {
         case userId = "UserId"
@@ -304,6 +306,8 @@ struct PlaybackInfoRequest: Codable {
         case mediaSourceId = "MediaSourceId"
         case deviceProfile = "DeviceProfile"
         case autoOpenLiveStream = "AutoOpenLiveStream"
+        case audioStreamIndex = "AudioStreamIndex"
+        case subtitleStreamIndex = "SubtitleStreamIndex"
     }
 }
 

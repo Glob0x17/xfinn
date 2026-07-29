@@ -35,7 +35,8 @@ final class PlaybackService {
     /// et d'inclure les sous-titres dans le manifest HLS si transcoding est nécessaire
     func getPlaybackInfo(
         itemId: String,
-        quality: StreamQuality = .auto
+        quality: StreamQuality = .auto,
+        audioStreamIndex: Int? = nil
     ) async throws -> PlaybackResult {
         guard let url = URL(string: "\(authService.baseURL)/Items/\(itemId)/PlaybackInfo") else {
             throw JellyfinError.invalidURL
@@ -53,7 +54,8 @@ final class PlaybackService {
             maxStreamingBitrate: maxBitrate,
             mediaSourceId: itemId,
             deviceProfile: deviceProfile,
-            autoOpenLiveStream: true
+            autoOpenLiveStream: true,
+            audioStreamIndex: audioStreamIndex
         )
 
         var request = authService.authenticatedRequest(for: url)
