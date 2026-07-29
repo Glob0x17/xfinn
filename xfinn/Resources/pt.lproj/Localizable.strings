@@ -52,6 +52,8 @@
 "media.choose_quality" = "Escolha a qualidade de streaming.";
 "media.subtitles" = "Legendas";
 "media.choose_subtitles" = "Escolha as legendas a exibir.";
+"media.audio_track" = "Faixa de áudio";
+"media.choose_audio" = "Escolher faixa de áudio.";
 "media.resume_playback" = "Retomar reprodução?";
 "media.resume_prompt" = "Deseja retomar a reprodução?";
 "media.resume_at" = "Deseja retomar a reprodução em %@?";
@@ -200,6 +202,9 @@
 
 // MARK: - Subtitles
 "subtitles.none" = "Nenhuma";
+
+// MARK: - Audio
+"audio.default" = "Padrão";
 
 // MARK: - Error Messages
 "error.connection_failed" = "Não foi possível conectar ao servidor. Verifique a URL e sua conexão de rede.";

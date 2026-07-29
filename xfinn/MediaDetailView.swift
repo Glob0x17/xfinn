@@ -23,6 +23,7 @@ struct MediaDetailView: View {
     @State private var isPlaybackActive = false
     @State private var showQualityPicker = false
     @State private var showSubtitlePicker = false
+    @State private var showAudioPicker = false
     @State private var showResumeAlert = false
 
     // MARK: - Initialization
@@ -65,6 +66,11 @@ struct MediaDetailView: View {
             subtitlePickerButtons
         } message: {
             Text("media.choose_subtitles".localized)
+        }
+        .alert("media.audio_track".localized, isPresented: $showAudioPicker) {
+            audioPickerButtons
+        } message: {
+            Text("media.choose_audio".localized)
         }
         .alert("media.resume_playback".localized, isPresented: $showResumeAlert) {
             resumeAlertButtons
@@ -310,6 +316,9 @@ struct MediaDetailView: View {
         HStack(spacing: geometry.size.width * 0.01) {
             playButton(geometry: geometry)
             qualityButton(geometry: geometry)
+            if viewModel.hasMultipleAudioTracks {
+                audioButton(geometry: geometry)
+            }
             if !viewModel.item.subtitleStreams.isEmpty {
                 subtitleButton(geometry: geometry)
             }
@@ -368,6 +377,25 @@ struct MediaDetailView: View {
         .background(viewModel.selectedSubtitleIndex != nil ? AppTheme.primary.opacity(0.2) : AppTheme.glassBackground)
         .clipShape(Capsule())
         .overlay(Capsule().stroke(viewModel.selectedSubtitleIndex != nil ? AppTheme.primary : AppTheme.glassStroke, lineWidth: 1.5))
+    }
+
+    private func audioButton(geometry: GeometryProxy) -> some View {
+        Button(action: { showAudioPicker = true }) {
+            HStack(spacing: 10) {
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: geometry.size.width * 0.01))
+                    .foregroundColor(.appPrimary)
+                Text(viewModel.selectedAudioDisplayName)
+                    .font(.system(size: geometry.size.width * 0.011, weight: .medium))
+                    .lineLimit(1)
+            }
+            .foregroundColor(.appTextPrimary)
+            .padding(.horizontal, geometry.size.width * 0.015)
+            .padding(.vertical, geometry.size.height * 0.015)
+        }
+        .background(AppTheme.glassBackground)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(AppTheme.glassStroke, lineWidth: 1.5))
     }
 
     @ViewBuilder
@@ -483,6 +511,16 @@ struct MediaDetailView: View {
     }
 
     @ViewBuilder
+    private var audioPickerButtons: some View {
+        ForEach(viewModel.sortedAudioStreams) { audio in
+            Button(audio.displayName) {
+                viewModel.selectAudioTrack(index: audio.index, language: audio.language)
+            }
+        }
+        Button("common.cancel".localized, role: .cancel) {}
+    }
+
+    @ViewBuilder
     private var resumeAlertButtons: some View {
         Button("common.continue".localized) { startPlayback(resumePosition: true) }
         Button("media.start_beginning".localized) { startPlayback(resumePosition: false) }
@@ -568,6 +606,7 @@ struct MediaDetailView: View {
                 item: viewModel.item,
                 quality: jellyfinService.preferredQuality,
                 resumePosition: position,
+                audioIndex: viewModel.selectedAudioIndex,
                 subtitleIndex: viewModel.selectedSubtitleIndex,
                 jellyfinService: jellyfinService
             )
