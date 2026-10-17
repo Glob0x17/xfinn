@@ -22,6 +22,15 @@ final class SeriesDetailViewModel: BaseViewModel {
     /// Les saisons de la série
     @Published private(set) var seasons: [MediaItem] = []
 
+    /// La saison actuellement sélectionnée (chips)
+    @Published private(set) var selectedSeasonId: String?
+
+    /// Épisodes chargés, par saison (cache : un aller serveur par saison)
+    @Published private(set) var episodesBySeason: [String: [MediaItem]] = [:]
+
+    /// Indique si les épisodes de la saison sélectionnée chargent
+    @Published private(set) var isLoadingEpisodes = false
+
     /// Indique si le contenu est en chargement
     @Published private(set) var isLoading = true
 
@@ -34,11 +43,6 @@ final class SeriesDetailViewModel: BaseViewModel {
 
     // MARK: - Computed Properties
 
-    /// Indique si la série a des saisons
-    var hasSeasons: Bool {
-        !seasons.isEmpty
-    }
-
     /// Nombre de saisons
     var seasonCount: Int {
         seasons.count
@@ -47,6 +51,16 @@ final class SeriesDetailViewModel: BaseViewModel {
     /// Indique si l'état est vide (chargé mais sans saisons)
     var isEmpty: Bool {
         !isLoading && seasons.isEmpty
+    }
+
+    /// La saison sélectionnée
+    var selectedSeason: MediaItem? {
+        seasons.first { $0.id == selectedSeasonId }
+    }
+
+    /// Épisodes de la saison sélectionnée
+    var episodes: [MediaItem] {
+        selectedSeasonId.flatMap { episodesBySeason[$0] } ?? []
     }
 
     // MARK: - Initialization
@@ -76,12 +90,42 @@ final class SeriesDetailViewModel: BaseViewModel {
                 self.seasons = loadedSeasons
                 self.isLoading = false
             }
+
+            // Sélectionne la première saison et charge ses épisodes
+            if selectedSeasonId == nil, let first = loadedSeasons.first {
+                await selectSeason(first)
+            }
         } catch {
             #if DEBUG
             print("[SeriesDetailViewModel] Error loading seasons: \(error.localizedDescription)")
             #endif
             self.hasLoaded = false
             self.isLoading = false
+            self.setError(error)
+        }
+    }
+
+    /// Sélectionne une saison et charge ses épisodes si nécessaire
+    func selectSeason(_ season: MediaItem) async {
+        selectedSeasonId = season.id
+        guard episodesBySeason[season.id] == nil else { return }
+
+        isLoadingEpisodes = true
+        do {
+            let loadedEpisodes = try await jellyfinService.getItems(
+                parentId: season.id,
+                includeItemTypes: ["Episode"]
+            )
+            withAnimation(AppTheme.standardAnimation) {
+                self.episodesBySeason[season.id] = loadedEpisodes
+                self.isLoadingEpisodes = false
+            }
+        } catch {
+            #if DEBUG
+            print("[SeriesDetailViewModel] Error loading episodes: \(error.localizedDescription)")
+            #endif
+            self.isLoadingEpisodes = false
+            self.setError(error)
         }
     }
 
@@ -89,14 +133,16 @@ final class SeriesDetailViewModel: BaseViewModel {
     func refresh() async {
         hasLoaded = false
         seasons = []
+        selectedSeasonId = nil
+        episodesBySeason = [:]
         await loadSeasons()
     }
 
     // MARK: - Image URLs
 
-    /// URL du backdrop de la série
+    /// URL du backdrop de la série (haute résolution pour le hero plein écran)
     var backdropURL: String {
-        jellyfinService.getImageURL(itemId: series.id, imageType: "Backdrop")
+        jellyfinService.getImageURL(itemId: series.id, imageType: "Backdrop", maxWidth: 1920)
     }
 
     /// Génère l'URL d'image pour une saison
@@ -130,11 +176,6 @@ final class SeasonEpisodesViewModel: BaseViewModel {
 
     // MARK: - Computed Properties
 
-    /// Indique si la saison a des épisodes
-    var hasEpisodes: Bool {
-        !episodes.isEmpty
-    }
-
     /// Nombre d'épisodes
     var episodeCount: Int {
         episodes.count
@@ -142,7 +183,7 @@ final class SeasonEpisodesViewModel: BaseViewModel {
 
     /// Texte du compteur d'épisodes
     var episodeCountText: String {
-        "\(episodeCount) épisode\(episodeCount > 1 ? "s" : "")"
+        episodeCount > 1 ? "series.episode_count.plural".localized(with: episodeCount) : "series.episode_count.singular".localized(with: episodeCount)
     }
 
     /// Indique si l'état est vide (chargé mais sans épisodes)
@@ -183,6 +224,7 @@ final class SeasonEpisodesViewModel: BaseViewModel {
             #endif
             self.hasLoaded = false
             self.isLoading = false
+            self.setError(error)
         }
     }
 

@@ -4,342 +4,139 @@
 //
 //  Created by Dorian Galiana on 23/12/2025.
 //  Merged with Liquid Glass features on 23/12/2025.
+//  Cleaned 18/08/2026: removed never-referenced members (typography and
+//  spacing scales, dimensions, shadows, gradients, focus scales, redundant
+//  *Color aliases). The canonical color names are primary/secondary/
+//  accent/tertiary; the platform scale system is fs()/sp()/dm().
 //
 
 import SwiftUI
 
 /// Thème centralisé de l'application xfinn
-/// Contient toutes les constantes de design, couleurs, typographie, animations et effets Liquid Glass
+/// Contient les constantes de design, couleurs, animations et effets Liquid Glass
 struct AppTheme {
-    
+
+    // MARK: - Platform Scale Factors
+
+    /// Scale factor for font sizes (tvOS → iOS)
+    #if os(tvOS)
+    static let fontScale: CGFloat = 1.0
+    static let spacingScale: CGFloat = 1.0
+    static let dimScale: CGFloat = 1.0
+    #else
+    static let fontScale: CGFloat = 0.55
+    static let spacingScale: CGFloat = 0.38
+    static let dimScale: CGFloat = 0.5
+    #endif
+
+    /// Scale a font size for the current platform
+    static func fs(_ tvOSSize: CGFloat) -> CGFloat { tvOSSize * fontScale }
+    /// Scale a spacing/padding value for the current platform
+    static func sp(_ tvOSSize: CGFloat) -> CGFloat { tvOSSize * spacingScale }
+    /// Scale a dimension (width/height) for the current platform
+    static func dm(_ tvOSSize: CGFloat) -> CGFloat { tvOSSize * dimScale }
+
     // MARK: - Colors
-    
-    /// Couleur principale de l'application (Jellyfin Purple)
-    static let primaryColor = Color.jellyfinPurple
-    
-    /// Alias pour primaryColor (compatibilité)
-    static let primary = primaryColor
-    
+
+    /// Couleur principale UI globale (style musique)
+    static let primary = Color.jellyfinBlue
+
     /// Couleur secondaire de l'application (Jellyfin Blue)
-    static let secondaryColor = Color.jellyfinBlue
-    
-    /// Alias pour secondaryColor (compatibilité)
-    static let secondary = secondaryColor
-    
-    /// Couleur d'accent pour les éléments interactifs
-    static let accentColor = Color.jellyfinPurple
-    
-    /// Alias pour accentColor (compatibilité)
-    static let accent = accentColor
-    
+    static let secondary = Color.jellyfinBlue
+
     /// Couleur tertiaire - Rose vif pour éléments spéciaux
-    static let tertiaryColor = Color(red: 1.0, green: 0.27, blue: 0.52) // #FF4585
-    
-    /// Alias pour tertiaryColor (compatibilité)
-    static let tertiary = tertiaryColor
-    
+    static let tertiary = Color(red: 1.0, green: 0.27, blue: 0.52) // #FF4585
+
+    /// Couleur d'accent pour les éléments interactifs
+    static let accent = tertiary
+
     // MARK: - Liquid Glass Colors
-    
+
     /// Glass effect pour les cards (Liquid Glass)
     static let glassBackground = Color.white.opacity(0.08)
-    static let glassStroke = Color.white.opacity(0.15)
-    
+    static let elevatedGlassBackground = Color.white.opacity(0.12)
+    static let glassStroke = Color.white.opacity(0.2)
+
     /// Couleur du contour de focus - Violet électrique vif
-    static let focusBorder = Color(red: 0.75, green: 0.35, blue: 0.95) // #BF5AF2
-    
+    static let focusBorder = Color(red: 0.40, green: 0.78, blue: 0.98)
+    static let focusGlowColor = Color(red: 0.96, green: 0.32, blue: 0.67)
+
     // MARK: - Status Colors
-    
+
     /// Couleur pour les erreurs - Rouge vif
     static let error = Color.red
-    
+
     /// Couleur pour les succès - Vert vif
     static let success = Color.green
-    
-    /// Couleur pour les avertissements - Orange
-    static let warning = Color.orange
-    
+
+    // MARK: - Gradients
+
     /// Gradient de fond pour l'application
     static let backgroundGradient = LinearGradient(
-        colors: [.black, Color(white: 0.1)],
+        colors: [
+            Color(red: 0.02, green: 0.05, blue: 0.10),
+            Color(red: 0.05, green: 0.08, blue: 0.14),
+            Color(red: 0.09, green: 0.06, blue: 0.12)
+        ],
         startPoint: .top,
         endPoint: .bottom
     )
-    
-    /// Gradient alternatif plus subtil
-    static let subtleBackgroundGradient = LinearGradient(
-        colors: [Color(white: 0.05), Color(white: 0.15)],
+
+    /// Gradient d'accent global (style musique)
+    static let accentGradient = LinearGradient(
+        colors: [secondary, tertiary],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    
-    // MARK: - Typography
-    
-    /// Très grand titre (pour les écrans principaux) - Optimisé pour tvOS
-    static let largeTitle = Font.system(size: 70, weight: .bold)
-    
-    /// Titre principal - Optimisé pour tvOS
-    static let title = Font.system(size: 58, weight: .bold)
-    
-    /// Titre secondaire - Optimisé pour tvOS
-    static let title2 = Font.system(size: 46, weight: .semibold)
-    
-    /// Titre de section - Optimisé pour tvOS
-    static let title3 = Font.system(size: 38, weight: .semibold)
-    
-    /// En-tête - Optimisé pour tvOS
-    static let headline = Font.system(size: 32, weight: .medium)
-    
-    /// Corps de texte - Optimisé pour tvOS
-    static let body = Font.system(size: 28)
-    
-    /// Corps de texte secondaire - Optimisé pour tvOS
-    static let bodySecondary = Font.system(size: 26)
-    
-    /// Légende - Optimisé pour tvOS
-    static let caption = Font.system(size: 24)
-    
-    /// Petite légende - Optimisé pour tvOS
-    static let caption2 = Font.system(size: 22)
-    
-    // MARK: - Spacing
-    
-    /// Petit espacement (10pt)
-    static let smallSpacing: CGFloat = 10
-    
-    /// Espacement moyen (20pt)
-    static let mediumSpacing: CGFloat = 20
-    
-    /// Grand espacement (40pt)
-    static let largeSpacing: CGFloat = 40
-    
-    /// Très grand espacement (60pt)
-    static let extraLargeSpacing: CGFloat = 60
-    
-    /// Espacement énorme (80pt)
-    static let hugeSpacing: CGFloat = 80
-    
+
     // MARK: - Padding
-    
-    /// Padding des bords de l'écran
+
+    #if os(tvOS)
     static let screenPadding: CGFloat = 60
-    
-    /// Padding des cartes
-    static let cardPadding: CGFloat = 30
-    
-    /// Padding des sections
-    static let sectionPadding: CGFloat = 40
-    
-    // MARK: - Corner Radius
-    
-    /// Petit rayon de coin
-    static let smallRadius: CGFloat = 8
-    
-    /// Rayon de coin moyen
-    static let mediumRadius: CGFloat = 12
-    
-    /// Grand rayon de coin
-    static let largeRadius: CGFloat = 15
-    
-    /// Très grand rayon de coin
-    static let extraLargeRadius: CGFloat = 20
-    
-    // MARK: - Dimensions
-    
-    /// Largeur des posters de film
-    static let posterWidth: CGFloat = 250
-    
-    /// Hauteur des posters de film
-    static let posterHeight: CGFloat = 375
-    
-    /// Largeur des cartes de média dans les carrousels
-    static let carouselCardWidth: CGFloat = 400
-    
-    /// Hauteur des cartes de média dans les carrousels
-    static let carouselCardHeight: CGFloat = 225
-    
-    /// Hauteur des rangées d'épisodes
-    static let episodeRowHeight: CGFloat = 180
-    
-    // MARK: - Shadows
-    
-    /// Ombre légère
-    static func lightShadow() -> some View {
-        EmptyView()
-            .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
-    }
-    
-    /// Ombre standard
-    static func standardShadow() -> some View {
-        EmptyView()
-            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
-    }
-    
-    /// Ombre forte
-    static func strongShadow() -> some View {
-        EmptyView()
-            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 8)
-    }
-    
+    #else
+    static let screenPadding: CGFloat = 16
+    #endif
+
     // MARK: - Animations
-    
+
     /// Animation standard
     static let standardAnimation = Animation.easeInOut(duration: 0.3)
-    
+
     /// Animation rapide
     static let quickAnimation = Animation.easeInOut(duration: 0.15)
-    
-    /// Animation lente
-    static let slowAnimation = Animation.easeInOut(duration: 0.5)
-    
+
     /// Animation avec spring
     static let springAnimation = Animation.spring(
         response: 0.3,
         dampingFraction: 0.7
     )
-    
-    /// Animation spring douce
-    static let softSpringAnimation = Animation.spring(
-        response: 0.4,
-        dampingFraction: 0.8
-    )
-    
-    /// Animation spring rebondissante
-    static let bouncySpringAnimation = Animation.spring(
-        response: 0.3,
-        dampingFraction: 0.6
-    )
-    
-    // MARK: - Focus Effects (tvOS)
-    
-    /// Scale lors du focus - Standard
-    static let focusScale: CGFloat = 1.05
-    
-    /// Scale lors du focus - Large (pour cartes importantes)
-    static let largeFocusScale: CGFloat = 1.1
-    
-    /// Scale lors du focus - Extra large (pour éléments principaux)
-    static let extraLargeFocusScale: CGFloat = 1.15
-    
-    // MARK: - Gradients
-    
-    /// Gradient pour les cartes
-    static let cardGradient = LinearGradient(
-        colors: [
-            Color.white.opacity(0.1),
-            Color.white.opacity(0.05)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-    
-    /// Gradient Jellyfin (violet vers bleu)
-    static let jellyfinGradient = LinearGradient(
-        colors: [Color.jellyfinPurple, Color.jellyfinBlue],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
-    
-    /// Gradient pour les overlays (du bas, transparent vers noir)
-    static let overlayGradient = LinearGradient(
-        colors: [.clear, .black.opacity(0.8)],
-        startPoint: .top,
-        endPoint: .bottom
-    )
-    
-    // MARK: - Materials
-    
-    /// Matériau pour les cartes
-    static let cardMaterial = Material.ultraThinMaterial
-    
-    /// Matériau pour les overlays
-    static let overlayMaterial = Material.ultraThin
-    
-    // MARK: - Progress Bar Colors
-    
-    /// Couleur de la barre de progression
-    static let progressColor = Color.jellyfinPurple
-    
-    /// Couleur de fond de la barre de progression
-    static let progressBackgroundColor = Color.white.opacity(0.3)
-    
-    // MARK: - Liquid Glass Effects
-    
-    /// Glass modifier pour cartes
-    static func glassCard() -> some View {
-        RoundedRectangle(cornerRadius: 20)
-            .fill(.ultraThinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(glassStroke, lineWidth: 1)
-            )
-    }
-    
-    /// Glass modifier pour boutons
-    static func glassButton() -> some View {
-        Capsule()
-            .fill(.thinMaterial)
-            .overlay(
-                Capsule()
-                    .stroke(glassStroke, lineWidth: 1.5)
-            )
-    }
 }
 
 // MARK: - Color Extensions
 
 extension Color {
-    // MARK: - Couleurs Jellyfin
-    
-    /// Couleur violette Jellyfin
-    static let jellyfinPurple = Color(red: 0.67, green: 0.27, blue: 0.82)
-    
     /// Couleur bleue Jellyfin
     static let jellyfinBlue = Color(red: 0.0, green: 0.64, blue: 0.87)
-    
-    // MARK: - Couleurs de l'application
-    
+
     /// Couleur pour les erreurs
     static let appError = Color.red
-    
-    /// Couleur pour les succès
-    static let appSuccess = Color.green
-    
-    /// Couleur pour les avertissements
-    static let appWarning = Color.orange
-    
-    /// Couleur d'accent principale
-    static let appAccent = jellyfinPurple
-    
-    // MARK: - Liquid Glass Colors
-    
-    /// Couleur principale pour les éléments interactifs
-    static let appPrimary = AppTheme.primaryColor
-    
+
     /// Couleur secondaire
-    static let appSecondary = AppTheme.secondaryColor
-    
+    static let appSecondary = AppTheme.secondary
+
     /// Couleur tertiaire - Rose vif pour éléments spéciaux
-    static let appTertiary = AppTheme.tertiaryColor
-    
-    /// Background glass
-    static let appGlass = AppTheme.glassBackground
-    
-    /// Couleur du contour de focus
-    static let appFocusBorder = AppTheme.focusBorder
-    
+    static let appTertiary = AppTheme.tertiary
+
     // MARK: - Text Colors
-    
+
     /// Texte principal - Blanc pur pour contraste maximal
     static let appTextPrimary = Color.white
-    
+
     /// Texte secondaire - Lecture confortable
     static let appTextSecondary = Color.white.opacity(0.85)
-    
+
     /// Texte tertiaire - Informations moins importantes
     static let appTextTertiary = Color.white.opacity(0.60)
-    
-    /// Texte désactivé
-    static let appTextDisabled = Color.white.opacity(0.30)
 }
 
 // MARK: - View Modifiers personnalisés
@@ -347,7 +144,7 @@ extension Color {
 struct GlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
     var padding: CGFloat = 20
-    
+
     func body(content: Content) -> some View {
         content
             .padding(padding)
@@ -362,18 +159,33 @@ struct GlassCardModifier: ViewModifier {
 
 struct GlassButtonModifier: ViewModifier {
     var isProminent: Bool = false
-    
+
+    #if os(tvOS)
+    private let hPad: CGFloat = 40
+    private let vPad: CGFloat = 20
+    #else
+    private let hPad: CGFloat = 20
+    private let vPad: CGFloat = 12
+    #endif
+
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 40)
-            .padding(.vertical, 20)
+            .padding(.horizontal, hPad)
+            .padding(.vertical, vPad)
             .background(
-                RoundedRectangle(cornerRadius: 50)
-                    .fill(isProminent ? AppTheme.primaryColor.opacity(0.9) : AppTheme.glassBackground)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 50)
+                        .fill(isProminent ? AppTheme.elevatedGlassBackground : AppTheme.glassBackground)
+                    if isProminent {
+                        RoundedRectangle(cornerRadius: 50)
+                            .fill(AppTheme.accentGradient)
+                            .opacity(0.85)
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 50)
-                    .stroke(isProminent ? AppTheme.accentColor : AppTheme.glassStroke, lineWidth: isProminent ? 2 : 1)
+                    .stroke(isProminent ? AppTheme.tertiary.opacity(0.9) : AppTheme.glassStroke, lineWidth: isProminent ? 2 : 1)
             )
     }
 }
@@ -381,7 +193,7 @@ struct GlassButtonModifier: ViewModifier {
 struct GlowingModifier: ViewModifier {
     var color: Color
     var radius: CGFloat = 20
-    
+
     func body(content: Content) -> some View {
         content
             .shadow(color: color.opacity(0.5), radius: radius, x: 0, y: 0)
@@ -389,72 +201,26 @@ struct GlowingModifier: ViewModifier {
     }
 }
 
-// MARK: - Focus Effect Modifier
-
-struct FocusEffectModifier: ViewModifier {
-    var cornerRadius: CGFloat = 20
-    var scale: CGFloat = 1.05
-    var borderWidth: CGFloat = 4
-    @Environment(\.isFocused) private var isFocused: Bool
-    
-    func body(content: Content) -> some View {
-        #if os(tvOS)
-        content
-            // Sur tvOS, utiliser buttonStyle(.card) est préférable
-            // Mais si on veut un effet personnalisé, on doit:
-            // 1. Désactiver l'effet système
-            .focusEffectDisabled()
-            // 2. Appliquer notre propre effet avec overlay
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(
-                        isFocused ? AppTheme.focusBorder : .clear,
-                        lineWidth: borderWidth
-                    )
-                    .allowsHitTesting(false)
-            )
-            // 3. Ajouter des effets de glow
-            .shadow(
-                color: isFocused ? AppTheme.focusBorder.opacity(0.6) : .clear,
-                radius: isFocused ? 20 : 0,
-                x: 0,
-                y: 0
-            )
-            .shadow(
-                color: isFocused ? AppTheme.focusBorder.opacity(0.3) : .clear,
-                radius: isFocused ? 30 : 0,
-                x: 0,
-                y: 0
-            )
-            // 4. Animation de scale
-            .scaleEffect(isFocused ? scale : 1.0)
-            .animation(AppTheme.springAnimation, value: isFocused)
-        #else
-        // Sur iOS/iPadOS, pas d'effet de focus nécessaire
-        content
-        #endif
-    }
-}
-
-// MARK: - Button Style Card personnalisé (Alternative pour tvOS)
+// MARK: - Button Styles (tvOS)
 
 struct CustomCardButtonStyle: ButtonStyle {
     var cornerRadius: CGFloat = 20
     @Environment(\.isFocused) private var isFocused
-    
+
     func makeBody(configuration: Configuration) -> some View {
         #if os(tvOS)
+        let effectiveScale = (isFocused ? 1.05 : 1.0) * (configuration.isPressed ? 0.97 : 1.0)
         configuration.label
-            .scaleEffect(isFocused ? 1.05 : 1.0)
+            .scaleEffect(effectiveScale)
             // Effet de lumière colorée qui se propage (sans contour)
             .shadow(
-                color: isFocused ? AppTheme.focusBorder.opacity(0.8) : .clear,
+                color: isFocused ? AppTheme.focusGlowColor.opacity(0.75) : .clear,
                 radius: isFocused ? 25 : 0,
                 x: 0,
                 y: 0
             )
             .shadow(
-                color: isFocused ? AppTheme.focusBorder.opacity(0.5) : .clear,
+                color: isFocused ? AppTheme.focusBorder.opacity(0.45) : .clear,
                 radius: isFocused ? 40 : 0,
                 x: 0,
                 y: 0
@@ -466,7 +232,7 @@ struct CustomCardButtonStyle: ButtonStyle {
                 y: 0
             )
             .animation(AppTheme.springAnimation, value: isFocused)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(AppTheme.quickAnimation, value: configuration.isPressed)
             .focusEffectDisabled()  // Désactiver l'effet système
         #else
         configuration.label
@@ -474,50 +240,54 @@ struct CustomCardButtonStyle: ButtonStyle {
         #endif
     }
 }
-          
+
+/// Style de bouton Glass pour tvOS (boutons arrondis type login)
+struct GlassButtonStyle: ButtonStyle {
+    var isProminent: Bool = false
+    @Environment(\.isFocused) private var isFocused
+
+    func makeBody(configuration: Configuration) -> some View {
+        #if os(tvOS)
+        let effectiveScale = (isFocused ? 1.05 : 1.0) * (configuration.isPressed ? 0.97 : 1.0)
+        configuration.label
+            .scaleEffect(effectiveScale)
+            .shadow(
+                color: isFocused ? (isProminent ? AppTheme.focusGlowColor : AppTheme.focusBorder).opacity(0.8) : .clear,
+                radius: isFocused ? 25 : 0,
+                x: 0,
+                y: 0
+            )
+            .shadow(
+                color: isFocused ? (isProminent ? AppTheme.focusGlowColor : AppTheme.focusBorder).opacity(0.5) : .clear,
+                radius: isFocused ? 40 : 0,
+                x: 0,
+                y: 0
+            )
+            .animation(AppTheme.springAnimation, value: isFocused)
+            .animation(AppTheme.quickAnimation, value: configuration.isPressed)
+            .focusEffectDisabled()
+        #else
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+        #endif
+    }
+}
+
 // MARK: - View Modifier Extensions
 
 extension View {
-    /// Applique le style de carte standard de l'app
-    func appCardStyle() -> some View {
-        self
-            .background(AppTheme.cardMaterial)
-            .cornerRadius(AppTheme.largeRadius)
-            .shadow(color: .black.opacity(0.3), radius: 10)
-    }
-    
-    /// Applique le padding standard de l'écran
-    func screenPadding() -> some View {
-        self.padding(AppTheme.screenPadding)
-    }
-    
     /// Applique un style de carte glass
     func glassCard(cornerRadius: CGFloat = 20, padding: CGFloat = 20) -> some View {
         modifier(GlassCardModifier(cornerRadius: cornerRadius, padding: padding))
     }
-    
+
     /// Applique un style de bouton glass
     func glassButton(prominent: Bool = false) -> some View {
         modifier(GlassButtonModifier(isProminent: prominent))
     }
-    
+
     /// Ajoute un effet de glow lumineux
-    func glowing(color: Color = .appPrimary, radius: CGFloat = 20) -> some View {
+    func glowing(color: Color, radius: CGFloat = 20) -> some View {
         modifier(GlowingModifier(color: color, radius: radius))
-    }
-    
-    /// Applique un effet de focus moderne avec contour violet électrique
-    /// - Parameters:
-    ///   - cornerRadius: Rayon des coins (par défaut: 20)
-    ///   - scale: Facteur d'agrandissement au focus (par défaut: 1.05)
-    ///   - borderWidth: Épaisseur du contour (par défaut: 4)
-    func focusEffect(cornerRadius: CGFloat = 20, scale: CGFloat = 1.05, borderWidth: CGFloat = 4) -> some View {
-        modifier(FocusEffectModifier(cornerRadius: cornerRadius, scale: scale, borderWidth: borderWidth))
-    }
-    
-    /// Applique un style de bouton personnalisé pour tvOS (alternative à focusEffect)
-    /// - Parameter cornerRadius: Rayon des coins
-    func customCardButtonStyle(cornerRadius: CGFloat = 20) -> some View {
-        self.buttonStyle(CustomCardButtonStyle(cornerRadius: cornerRadius))
     }
 }

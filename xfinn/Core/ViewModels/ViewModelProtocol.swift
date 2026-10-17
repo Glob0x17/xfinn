@@ -3,10 +3,12 @@
 //  xfinn
 //
 //  Created by Refactoring Phase 1
+//  Cleaned 18/08/2026: removed unused protocols (ViewModelProtocol,
+//  CancellableViewModelProtocol, ErrorHandlingViewModel) — only
+//  LoadingState and TaskManager are used, by BaseViewModel.
 //
 
 import Foundation
-import Combine
 
 // MARK: - Loading State
 
@@ -35,57 +37,6 @@ enum LoadingState: Equatable {
     var errorMessage: String? {
         if case .error(let message) = self { return message }
         return nil
-    }
-
-    static func == (lhs: LoadingState, rhs: LoadingState) -> Bool {
-        switch (lhs, rhs) {
-        case (.idle, .idle): return true
-        case (.loading, .loading): return true
-        case (.loaded, .loaded): return true
-        case (.error(let lhsMsg), .error(let rhsMsg)): return lhsMsg == rhsMsg
-        default: return false
-        }
-    }
-}
-
-// MARK: - ViewModel Protocol
-
-/// Protocole de base pour tous les ViewModels
-protocol ViewModelProtocol: ObservableObject {
-    /// État de chargement actuel
-    var loadingState: LoadingState { get }
-
-    /// Charger les données initiales
-    func load() async
-
-    /// Rafraîchir les données
-    func refresh() async
-}
-
-// MARK: - Default Implementation
-
-extension ViewModelProtocol {
-    /// Implémentation par défaut de refresh (appelle load)
-    func refresh() async {
-        await load()
-    }
-}
-
-// MARK: - Cancellable ViewModel Protocol
-
-/// Protocole pour les ViewModels avec gestion de tâches annulables
-protocol CancellableViewModelProtocol: ViewModelProtocol {
-    /// Tâches en cours pouvant être annulées
-    var activeTasks: Set<AnyCancellable> { get set }
-
-    /// Annuler toutes les tâches en cours
-    func cancelAllTasks()
-}
-
-extension CancellableViewModelProtocol {
-    func cancelAllTasks() {
-        activeTasks.forEach { $0.cancel() }
-        activeTasks.removeAll()
     }
 }
 
@@ -122,33 +73,5 @@ final class TaskManager {
 
     deinit {
         cancelAll()
-    }
-}
-
-// MARK: - Error Handling
-
-/// Protocole pour la gestion des erreurs dans les ViewModels
-protocol ErrorHandlingViewModel: ViewModelProtocol {
-    /// Message d'erreur actuel
-    var errorMessage: String? { get set }
-
-    /// Gère une erreur et met à jour l'état
-    func handleError(_ error: Error)
-
-    /// Efface l'erreur courante
-    func clearError()
-}
-
-extension ErrorHandlingViewModel {
-    func handleError(_ error: Error) {
-        if let jellyfinError = error as? JellyfinError {
-            errorMessage = jellyfinError.localizedDescription
-        } else {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func clearError() {
-        errorMessage = nil
     }
 }

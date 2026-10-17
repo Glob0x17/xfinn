@@ -13,9 +13,13 @@ struct PlaybackResult {
     let playSessionId: String
     let mediaSource: MediaSourceInfo
     let isTranscoding: Bool
+    /// Le Direct Play a été refusé côté client (MP4 fragmenté détecté ou
+    /// repli après échec) : le flux est un remux HLS
+    let directPlayDisabled: Bool
 }
 
 /// Service de gestion de la lecture Jellyfin
+@MainActor
 final class PlaybackService {
 
     // MARK: - Properties
@@ -33,11 +37,49 @@ final class PlaybackService {
     /// Obtient les informations de lecture via l'API PlaybackInfo avec DeviceProfile
     /// Cette méthode permet au serveur Jellyfin de décider du meilleur mode de lecture
     /// et d'inclure les sous-titres dans le manifest HLS si transcoding est nécessaire
+    /// Construit la query de PlaybackInfo — Jellyfin n'honore
+    /// AudioStreamIndex/SubtitleStreamIndex QUE en query string et QUE si
+    /// MediaSourceId y figure aussi (vérifié sur 10.11 ; en body ils sont
+    /// silencieusement ignorés). SubtitleStreamIndex=-1 = aucun sous-titre
+    /// (sinon le serveur applique la préférence du compte, qui peut
+    /// déclencher une incrustation impossible à désactiver côté client).
+    /// Fonction pure, testée dans xfinnTests
+    static func playbackInfoQueryItems(
+        itemId: String,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) -> [URLQueryItem] {
+        var items = [URLQueryItem(name: "MediaSourceId", value: itemId)]
+        if let audioStreamIndex {
+            items.append(URLQueryItem(name: "AudioStreamIndex", value: "\(audioStreamIndex)"))
+        }
+        if let subtitleStreamIndex {
+            items.append(URLQueryItem(name: "SubtitleStreamIndex", value: "\(subtitleStreamIndex)"))
+        }
+        return items
+    }
+
+    /// - Parameter forceAudioTranscode: profil de repli qui impose le
+    ///   réencodage audio en AAC (voir `DeviceProfile.tvOSProfile`)
+    /// - Parameter allowDirectPlay: false = demande un flux HLS même si le
+    ///   fichier est lisible tel quel (voir `MP4Layout`)
     func getPlaybackInfo(
         itemId: String,
-        quality: StreamQuality = .auto
+        quality: StreamQuality = .auto,
+        audioStreamIndex: Int? = nil,
+        subtitleStreamIndex: Int? = nil,
+        forceAudioTranscode: Bool = false,
+        allowDirectPlay: Bool = true
     ) async throws -> PlaybackResult {
-        guard let url = URL(string: "\(authService.baseURL)/Items/\(itemId)/PlaybackInfo") else {
+        guard var urlComponents = URLComponents(string: "\(authService.baseURL)/Items/\(itemId)/PlaybackInfo") else {
+            throw JellyfinError.invalidURL
+        }
+        urlComponents.queryItems = Self.playbackInfoQueryItems(
+            itemId: itemId,
+            audioStreamIndex: audioStreamIndex,
+            subtitleStreamIndex: subtitleStreamIndex
+        )
+        guard let url = urlComponents.url else {
             throw JellyfinError.invalidURL
         }
 
@@ -45,7 +87,10 @@ final class PlaybackService {
         // Pour "Auto", utiliser le bitrate Maximum (360 Mbps) pour favoriser le Direct Play
         // Le serveur choisira le meilleur mode en fonction du média
         let maxBitrate = quality.maxBitrate ?? StreamQuality.maximum.rawValue
-        let deviceProfile = DeviceProfile.tvOSProfile(maxBitrate: maxBitrate)
+        let deviceProfile = DeviceProfile.currentProfile(
+            maxBitrate: maxBitrate,
+            forceAudioTranscode: forceAudioTranscode
+        )
 
         // Créer la requête PlaybackInfo
         let playbackInfoRequest = PlaybackInfoRequest(
@@ -53,7 +98,9 @@ final class PlaybackService {
             maxStreamingBitrate: maxBitrate,
             mediaSourceId: itemId,
             deviceProfile: deviceProfile,
-            autoOpenLiveStream: true
+            autoOpenLiveStream: true,
+            enableDirectPlay: allowDirectPlay ? nil : false,
+            enableDirectStream: allowDirectPlay ? nil : false
         )
 
         var request = authService.authenticatedRequest(for: url)
@@ -61,15 +108,16 @@ final class PlaybackService {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(playbackInfoRequest)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
 
-        let response = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
+        let playbackInfoResponse = try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
 
-        guard let playSessionId = response.playSessionId else {
+        guard let playSessionId = playbackInfoResponse.playSessionId else {
             throw JellyfinError.responseError("error.no_play_session".localized)
         }
 
-        guard let mediaSource = response.mediaSources?.first else {
+        guard let mediaSource = playbackInfoResponse.mediaSources?.first else {
             throw JellyfinError.responseError("error.no_media_source".localized)
         }
 
@@ -93,14 +141,50 @@ final class PlaybackService {
             }
             streamURL = fullURL
             isTranscoding = false
+
+            // MP4 fragmenté en Direct Play : AVPlayer bloque plusieurs
+            // minutes au chargement → redemander un remux HLS au serveur
+            if allowDirectPlay,
+               MP4Layout.isMP4Family(container: mediaSource.container),
+               await isFragmentedMP4(at: fullURL) == true {
+                #if DEBUG
+                print("[PlaybackService] Fragmented MP4 detected for \(itemId) — requesting HLS instead of Direct Play")
+                #endif
+                return try await getPlaybackInfo(
+                    itemId: itemId,
+                    quality: quality,
+                    audioStreamIndex: audioStreamIndex,
+                    subtitleStreamIndex: subtitleStreamIndex,
+                    forceAudioTranscode: forceAudioTranscode,
+                    allowDirectPlay: false
+                )
+            }
         }
 
         return PlaybackResult(
             streamURL: streamURL,
             playSessionId: playSessionId,
             mediaSource: mediaSource,
-            isTranscoding: isTranscoding
+            isTranscoding: isTranscoding,
+            directPlayDisabled: !allowDirectPlay
         )
+    }
+
+    /// Lit les premiers Ko du fichier (requête Range) pour détecter un MP4
+    /// fragmenté. nil si indéterminé ou en cas d'erreur réseau — le timeout
+    /// de chargement côté PlayerManager couvre alors le cas.
+    private func isFragmentedMP4(at url: URL) async -> Bool? {
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.setValue("bytes=0-\(MP4Layout.probeLength - 1)", forHTTPHeaderField: "Range")
+
+        guard let (data, response) = try? await authService.session.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return nil
+        }
+        // Un serveur qui ignore Range renvoie 200 + le fichier entier :
+        // URLSession l'a déjà téléchargé, on ne garde que la tête
+        return MP4Layout.isFragmented(prefix: data.prefix(MP4Layout.probeLength))
     }
 
     // MARK: - URL Building Helpers
@@ -116,7 +200,7 @@ final class PlaybackService {
             URLQueryItem(name: "static", value: "true"),
             URLQueryItem(name: "mediaSourceId", value: itemId),
             URLQueryItem(name: "playSessionId", value: playSessionId),
-            URLQueryItem(name: "api_key", value: authService.accessToken),
+            URLQueryItem(name: "ApiKey", value: authService.accessToken),
             URLQueryItem(name: "deviceId", value: authService.deviceId)
         ]
 
@@ -142,7 +226,7 @@ final class PlaybackService {
         var queryItems = [
             URLQueryItem(name: "MediaSourceId", value: itemId),
             URLQueryItem(name: "DeviceId", value: authService.deviceId),
-            URLQueryItem(name: "api_key", value: authService.accessToken),
+            URLQueryItem(name: "ApiKey", value: authService.accessToken),
             URLQueryItem(name: "PlaySessionId", value: playSessionId),
             URLQueryItem(name: "VideoCodec", value: "h264"),
             URLQueryItem(name: "AudioCodec", value: "aac"),
@@ -193,16 +277,33 @@ final class PlaybackService {
         }
 
         urlComponents.queryItems = [
-            URLQueryItem(name: "api_key", value: authService.accessToken)
+            URLQueryItem(name: "ApiKey", value: authService.accessToken)
         ]
 
         return urlComponents.url
     }
 
+    // MARK: - Media Segments
+
+    /// Récupère les segments (intro, générique, récap) d'un média
+    /// Serveur < 10.9 ou média non analysé : l'appelant traite l'erreur/le
+    /// vide comme "pas de segments" — jamais bloquant pour la lecture
+    func getMediaSegments(itemId: String) async throws -> [MediaSegment] {
+        guard let url = URL(string: "\(authService.baseURL)/MediaSegments/\(itemId)") else {
+            throw JellyfinError.invalidURL
+        }
+
+        let request = authService.authenticatedRequest(for: url)
+        let (data, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
+
+        return try JSONDecoder().decode(MediaSegmentsResponse.self, from: data).items
+    }
+
     // MARK: - Playback Reporting
 
     /// Signale le début de la lecture
-    func reportPlaybackStart(itemId: String, positionTicks: Int64 = 0, playSessionId: String) async throws {
+    func reportPlaybackStart(itemId: String, positionTicks: Int64 = 0, playSessionId: String, playMethod: String = "DirectStream") async throws {
         guard let url = URL(string: "\(authService.baseURL)/Sessions/Playing") else {
             throw JellyfinError.invalidURL
         }
@@ -214,17 +315,18 @@ final class PlaybackService {
         let body: [String: Any] = [
             "ItemId": itemId,
             "PositionTicks": positionTicks,
-            "PlayMethod": "DirectStream",
+            "PlayMethod": playMethod,
             "CanSeek": true,
             "PlaySessionId": playSessionId
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, _) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
     }
 
     /// Signale la progression de la lecture
-    func reportPlaybackProgress(itemId: String, positionTicks: Int64, isPaused: Bool = false, playSessionId: String) async throws {
+    func reportPlaybackProgress(itemId: String, positionTicks: Int64, isPaused: Bool = false, playSessionId: String, playMethod: String = "DirectStream") async throws {
         guard let url = URL(string: "\(authService.baseURL)/Sessions/Playing/Progress") else {
             throw JellyfinError.invalidURL
         }
@@ -237,17 +339,18 @@ final class PlaybackService {
             "ItemId": itemId,
             "PositionTicks": positionTicks,
             "IsPaused": isPaused,
-            "PlayMethod": "DirectStream",
+            "PlayMethod": playMethod,
             "CanSeek": true,
             "PlaySessionId": playSessionId
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, _) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
     }
 
     /// Signale l'arrêt de la lecture
-    func reportPlaybackStopped(itemId: String, positionTicks: Int64, playSessionId: String) async throws {
+    func reportPlaybackStopped(itemId: String, positionTicks: Int64, playSessionId: String, playMethod: String = "DirectStream") async throws {
         guard let url = URL(string: "\(authService.baseURL)/Sessions/Playing/Stopped") else {
             throw JellyfinError.invalidURL
         }
@@ -259,11 +362,13 @@ final class PlaybackService {
         let body: [String: Any] = [
             "ItemId": itemId,
             "PositionTicks": positionTicks,
-            "PlayMethod": "DirectStream",
+            "PlayMethod": playMethod,
             "PlaySessionId": playSessionId
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, _) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
     }
+
 }

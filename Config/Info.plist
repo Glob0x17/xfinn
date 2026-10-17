@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Fusionné avec le plist généré (GENERATE_INFOPLIST_FILE=YES).
+	     Seules les clés impossibles à exprimer en build settings vivent ici. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>doriang.xfinn</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>xfinn</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

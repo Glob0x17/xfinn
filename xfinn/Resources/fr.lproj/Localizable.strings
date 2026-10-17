@@ -35,6 +35,10 @@
 "login.password_placeholder" = "Votre mot de passe";
 "login.sign_in" = "Se connecter";
 "login.connecting" = "Connexion...";
+"login.discovered_servers" = "Serveurs découverts";
+"login.recent_servers" = "Serveurs récents";
+"login.searching_servers" = "Recherche de serveurs sur le réseau...";
+"login.or_manual" = "ou saisir manuellement";
 
 // MARK: - Home
 "home.search" = "Rechercher";
@@ -63,6 +67,7 @@
 "media.resume_at_time" = "Reprendre à %@";
 "media.rewatch" = "Revoir";
 "media.play" = "Lire";
+"media.playback_error" = "Erreur de lecture";
 "media.series" = "Série";
 "media.season_episode" = "Saison %d, Épisode %d";
 
@@ -80,9 +85,9 @@
 "series.watched" = "Vu";
 
 // MARK: - Search
-"search.placeholder" = "Rechercher films, séries, épisodes...";
+"search.placeholder" = "Rechercher films, séries, musique...";
 "search.empty_title" = "Rechercher du contenu";
-"search.empty_message" = "Tapez pour rechercher parmi vos films,\nséries et épisodes";
+"search.empty_message" = "Tapez pour rechercher parmi vos films,\nséries, albums et artistes";
 "search.no_results" = "Aucun résultat";
 "search.no_results_message" = "Essayez avec d'autres mots-clés";
 "search.searching" = "Recherche en cours...";
@@ -187,6 +192,9 @@
 "search.filter.movies" = "Films";
 "search.filter.series" = "Séries";
 "search.filter.episodes" = "Épisodes";
+"search.filter.albums" = "Albums";
+"search.filter.artists" = "Artistes";
+"search.filter.tracks" = "Pistes";
 
 // MARK: - Empty States
 "empty.no_content" = "Aucun contenu";
@@ -210,11 +218,86 @@
 "error.server" = "Erreur serveur (code %d)";
 "error.response" = "Erreur de réponse : %@";
 "error.loading" = "Erreur de chargement: %@";
+"error.loading_timeout" = "Le fichier met trop de temps à charger";
+"error.not_playable" = "Ce média ne peut pas être lu par le lecteur";
 "error.no_play_session" = "Pas de PlaySessionId dans la réponse";
 "error.no_media_source" = "Pas de MediaSource dans la réponse";
 "error.connect_failed" = "Impossible de se connecter: %@";
 "error.auth_error" = "Échec de l'authentification: %@";
 "error.playback_info" = "Impossible d'obtenir les informations de lecture: %@";
 
+// MARK: - Music
+"music.loading_artists" = "Chargement des artistes...";
+"music.no_artists" = "Aucun artiste";
+"music.no_artists_message" = "Cette bibliothèque ne contient aucun artiste";
+"music.all_artists" = "Tous les artistes";
+"music.artists_available" = "%d artiste(s) disponible(s)";
+"music.artist" = "Artiste";
+"music.loading_albums" = "Chargement des albums...";
+"music.no_albums" = "Aucun album";
+"music.no_albums_message" = "Cet artiste n'a aucun album";
+"music.albums_count" = "%d album(s)";
+"music.album" = "Album";
+"music.loading_tracks" = "Chargement des pistes...";
+"music.no_tracks" = "Aucune piste";
+"music.no_tracks_message" = "Cet album ne contient aucune piste";
+"music.tracks" = "Pistes";
+"music.tracks_count" = "%d piste(s)";
+"music.play_all" = "Tout lire";
+"music.load_artists_error" = "Impossible de charger les artistes.";
+"music.load_albums_error" = "Impossible de charger les albums.";
+"music.load_tracks_error" = "Impossible de charger les pistes.";
+"music.unknown_track" = "Piste inconnue";
+"music.unknown_artist" = "Artiste inconnu";
+
 // MARK: - Privacy
 "NSLocalNetworkUsageDescription" = "xfinn a besoin d'accéder à votre réseau local pour découvrir et se connecter à votre serveur Jellyfin.";
+
+/* Music player (added 18/08/2026) */
+"music.player.stop" = "Arrêter";
+"music.repeat.off" = "Répétition";
+"music.repeat.one" = "Une piste";
+"music.repeat.all" = "Tout";
+"music.no_library_found" = "Aucune bibliothèque musicale trouvée";
+"series.episode_count.singular" = "%d épisode";
+"series.episode_count.plural" = "%d épisodes";
+"series.season_count.singular" = "%d saison";
+"series.season_count.plural" = "%d saisons";
+"music.library_title" = "Musique";
+
+/* Quick Connect (added 21/08/2026) */
+"login.quick_connect" = "Se connecter avec un code";
+"login.quick_connect_title" = "Quick Connect";
+"login.quick_connect_instructions" = "Entrez ce code dans Jellyfin\n(Profil → Quick Connect)";
+"login.quick_connect_waiting" = "En attente d'approbation…";
+"login.quick_connect_expired" = "Ce code a expiré";
+"login.quick_connect_new_code" = "Nouveau code";
+"error.quick_connect_expired" = "Le code Quick Connect a expiré. Demandez-en un nouveau.";
+
+/* Media segments / skip intro (added 21/08/2026) */
+"player.skip_intro" = "Passer l'intro";
+"player.skip_outro" = "Passer le générique";
+"player.skip_recap" = "Passer le récap";
+"settings.playback" = "Lecture";
+"settings.auto_skip_intro" = "Passer les intros automatiquement";
+"settings.auto_skip_intro_footer" = "Nécessite des segments détectés par votre serveur (ex. plugin Intro Skipper). Les génériques et récaps gardent toujours un bouton manuel.";
+
+/* Library sort & filter (added 22/08/2026) */
+"library.sort.name" = "A–Z";
+"library.sort.date_added" = "Ajouts récents";
+"library.sort.rating" = "Mieux notés";
+"library.sort.year" = "Année";
+"library.filter.unwatched" = "Non vus";
+
+/* Watched / favorites (added 22/08/2026) */
+"action.mark_watched" = "Marquer comme vu";
+"action.mark_unwatched" = "Marquer comme non vu";
+"action.favorite" = "Ajouter aux favoris";
+"action.unfavorite" = "Retirer des favoris";
+"action.view_details" = "Voir la fiche";
+"home.favorites" = "Favoris";
+
+/* Audio track picker (added 22/08/2026) */
+"media.audio" = "Audio";
+"media.choose_audio" = "Choisissez la piste audio";
+"media.audio_auto" = "Auto";

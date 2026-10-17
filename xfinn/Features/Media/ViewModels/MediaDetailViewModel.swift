@@ -28,6 +28,10 @@ final class MediaDetailViewModel: BaseViewModel {
     /// Index du sous-titre sélectionné
     @Published var selectedSubtitleIndex: Int?
 
+    /// Index de la piste audio sélectionnée (nil = choix du serveur,
+    /// qui applique la préférence de langue du compte Jellyfin)
+    @Published var selectedAudioStreamIndex: Int?
+
     /// Langue de sous-titre préférée
     @Published var preferredSubtitleLanguage: String?
 
@@ -39,6 +43,9 @@ final class MediaDetailViewModel: BaseViewModel {
 
     /// Flag pour auto-play activé
     @Published var shouldAutoPlayNext = true
+
+    /// Trigger pour signaler que le countdown est terminé (remplace callback pour éviter fuite mémoire)
+    @Published var countdownFinishedTrigger = false
 
     // MARK: - Dependencies
 
@@ -60,22 +67,6 @@ final class MediaDetailViewModel: BaseViewModel {
     /// Indique si l'item a été vu
     var hasBeenPlayed: Bool {
         currentUserData?.played == true
-    }
-
-    /// Indique si on devrait proposer de reprendre
-    var shouldShowResumeOption: Bool {
-        hasPlaybackProgress && !hasBeenPlayed
-    }
-
-    /// Texte du bouton de lecture
-    var playButtonText: String {
-        hasBeenPlayed ? "Revoir" : "Lire"
-    }
-
-    /// Position de reprise formatée
-    var resumePositionFormatted: String? {
-        guard let userData = currentUserData, userData.playbackPositionTicks > 0 else { return nil }
-        return formatDuration(userData.playbackPosition)
     }
 
     /// Position de reprise en secondes
@@ -121,6 +112,15 @@ final class MediaDetailViewModel: BaseViewModel {
         !item.subtitleStreams.isEmpty
     }
 
+    /// Nom d'affichage de la piste audio sélectionnée
+    var selectedAudioDisplayName: String {
+        if let index = selectedAudioStreamIndex,
+           let stream = item.audioStreams.first(where: { $0.index == index }) {
+            return stream.displayName
+        }
+        return "media.audio_auto".localized
+    }
+
     // MARK: - Initialization
 
     init(item: MediaItem, jellyfinService: JellyfinService) {
@@ -143,6 +143,7 @@ final class MediaDetailViewModel: BaseViewModel {
         // Charger les préférences de sous-titres
         loadSubtitlePreferences()
         autoSelectSubtitles()
+        autoSelectAudio()
 
         // Rafraîchir les données utilisateur
         await refreshUserData()
@@ -150,6 +151,35 @@ final class MediaDetailViewModel: BaseViewModel {
         // Charger le prochain épisode si c'est un épisode
         if isEpisode {
             await loadNextEpisode()
+        }
+    }
+
+    /// Indique si l'item est en favori
+    var isFavorite: Bool {
+        currentUserData?.isFavorite == true
+    }
+
+    /// Bascule l'état vu/non vu
+    func toggleWatched() async {
+        do {
+            try await jellyfinService.setPlayed(itemId: item.id, played: !hasBeenPlayed)
+            currentUserData = jellyfinService.effectiveUserData(for: item)
+        } catch {
+            #if DEBUG
+            print("[MediaDetailViewModel] toggleWatched failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    /// Bascule l'état favori
+    func toggleFavorite() async {
+        do {
+            try await jellyfinService.setFavorite(itemId: item.id, favorite: !isFavorite)
+            currentUserData = jellyfinService.effectiveUserData(for: item)
+        } catch {
+            #if DEBUG
+            print("[MediaDetailViewModel] toggleFavorite failed: \(error.localizedDescription)")
+            #endif
         }
     }
 
@@ -221,6 +251,27 @@ final class MediaDetailViewModel: BaseViewModel {
         selectSubtitle(index: nil, language: nil)
     }
 
+    // MARK: - Audio Track Management
+
+    /// Pré-sélectionne la piste correspondant à la dernière langue audio
+    /// choisie par l'utilisateur (nil sinon : le serveur décide)
+    func autoSelectAudio() {
+        guard item.hasMultipleAudioTracks else { return }
+        let preferred = UserDefaults.standard.string(forKey: "preferredAudioLanguage")
+        selectedAudioStreamIndex = item.audioStreams.firstAudioIndex(matchingLanguage: preferred)
+    }
+
+    /// Met à jour la piste audio choisie et mémorise la langue
+    func selectAudio(index: Int?, language: String?) {
+        selectedAudioStreamIndex = index
+
+        if let language {
+            UserDefaults.standard.set(language, forKey: "preferredAudioLanguage")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "preferredAudioLanguage")
+        }
+    }
+
     // MARK: - Autoplay Management
 
     /// Démarre le compte à rebours pour l'épisode suivant
@@ -242,33 +293,16 @@ final class MediaDetailViewModel: BaseViewModel {
         }
     }
 
-    /// Réinitialise l'état d'auto-play pour le prochain épisode
-    func resetAutoPlayState() {
-        countdownTask?.cancel()
-        countdownTask = nil
-        showNextEpisodeOverlay = false
-        shouldAutoPlayNext = true
-    }
-
     /// Appelé quand le countdown atteint 0 ou que l'utilisateur clique "Lire"
     func onAutoPlayTriggered() -> MediaItem? {
         countdownTask?.cancel()
         countdownTask = nil
         showNextEpisodeOverlay = false
+        shouldAutoPlayNext = false  // Empêche le double-déclenchement
         return nextEpisode
     }
 
     // MARK: - Image URLs
-
-    /// URL de l'image principale
-    var primaryImageURL: String {
-        jellyfinService.getImageURL(itemId: item.id, imageType: "Primary", maxWidth: 400)
-    }
-
-    /// URL du backdrop
-    var backdropImageURL: String {
-        jellyfinService.getImageURL(itemId: item.id, imageType: "Backdrop", maxWidth: 1920)
-    }
 
     /// URL d'image pour un item donné
     func getImageURL(for mediaItem: MediaItem, imageType: String = "Primary", maxWidth: Int = 400) -> String {
@@ -287,14 +321,14 @@ final class MediaDetailViewModel: BaseViewModel {
                     nextEpisodeCountdown -= 1
                 }
             }
+
+            // Si le countdown est arrivé à 0 (pas annulé), déclencher l'autoplay via Publisher
+            if !Task.isCancelled && nextEpisodeCountdown == 0 {
+                countdownFinishedTrigger = true
+            }
         }
     }
 
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-        return hours > 0 ? "\(hours)h \(minutes)min" : "\(minutes)min"
-    }
 }
 
 // MARK: - Preview Helper
