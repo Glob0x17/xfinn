@@ -14,8 +14,15 @@ import Foundation
 extension UserDefaults {
     private enum Keys {
         static let deviceId = "deviceId"
-        static let preferredStreamQuality = "preferredStreamQuality"
+        static let autoSkipIntro = "autoSkipIntro"
         // Note: serverURL, accessToken et userId sont maintenant dans Keychain
+        // Note: preferredStreamQuality est géré par StreamQuality.save()/load() (Int)
+    }
+
+    /// Passer automatiquement les intros détectées (défaut : désactivé)
+    var autoSkipIntro: Bool {
+        get { bool(forKey: Keys.autoSkipIntro) }
+        set { set(newValue, forKey: Keys.autoSkipIntro) }
     }
 
     /// URL du serveur Jellyfin (stocké dans Keychain)
@@ -44,12 +51,6 @@ extension UserDefaults {
         let id = UUID().uuidString
         set(id, forKey: Keys.deviceId)
         return id
-    }
-
-    /// Qualité de streaming préférée
-    var preferredStreamQuality: String? {
-        get { string(forKey: Keys.preferredStreamQuality) }
-        set { set(newValue, forKey: Keys.preferredStreamQuality) }
     }
 
     /// Efface toutes les données Jellyfin (utile lors de la déconnexion)

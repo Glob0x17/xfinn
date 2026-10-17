@@ -29,9 +29,18 @@ struct DeviceProfile: Codable {
         case codecProfiles = "CodecProfiles"
     }
 
+    /// Codec audio unique déclaré au serveur quand on force le réencodage
+    /// audio (repli après échec d'un remux EAC3/AC3 en fMP4).
+    static let audioFallbackTranscodeCodec = "aac"
+
     /// Crée un profil optimisé pour tvOS basé sur les capacités détectées de l'appareil
     /// Adapte automatiquement les codecs et résolutions supportés selon le modèle d'Apple TV
-    static func tvOSProfile(maxBitrate: Int? = nil) -> DeviceProfile {
+    /// - Parameter forceAudioTranscode: ne déclare que l'AAC dans le profil de
+    ///   transcodage HLS. Le serveur réencode alors l'audio au lieu de copier
+    ///   l'EAC3/AC3 dans le fMP4 — copie qui produit un segment d'init invalide
+    ///   (ffmpeg : "Cannot write moov atom before EAC3 packets parsed") quand
+    ///   la piste audio démarre après la vidéo. Le Direct Play n'est pas touché.
+    static func tvOSProfile(maxBitrate: Int? = nil, forceAudioTranscode: Bool = false) -> DeviceProfile {
         let capabilities = DeviceCapabilities.current
 
         var profile = DeviceProfile()
@@ -55,7 +64,8 @@ struct DeviceProfile: Codable {
         let videoCodecString = videoCodecs.joined(separator: ",")
 
         // Codecs audio (identiques pour tous les modèles)
-        let audioCodecs = "aac,ac3,eac3,alac,mp3,flac"
+        // MP3 retiré du transcode pour éviter ESDS malformés en stream copy → forçage AAC
+        let audioCodecs = "aac,ac3,eac3,alac,flac"
 
         // Direct Play - Formats supportés nativement par AVPlayer
         // IMPORTANT: MKV n'est JAMAIS supporté par AVPlayer
@@ -71,7 +81,7 @@ struct DeviceProfile: Codable {
                 type: "Video",
                 container: "mp4",  // fMP4 pour HLS - CRUCIAL pour HEVC/DV !
                 videoCodec: videoCodecString,
-                audioCodec: audioCodecs,
+                audioCodec: forceAudioTranscode ? audioFallbackTranscodeCodec : audioCodecs,
                 context: "Streaming",
                 protocol: "hls",
                 maxAudioChannels: "8",
@@ -81,22 +91,106 @@ struct DeviceProfile: Codable {
             )
         ]
 
-        // Subtitle Profiles (identiques pour tous les modèles)
+        // Subtitle Profiles
+        // Les formats texte sont déclarés en "Hls" : Jellyfin les convertit en
+        // VTT et les publie en renditions du manifest (vérifié sur 10.11 —
+        // sans déclaration, les pistes ass/srt sont silencieusement ABSENTES
+        // du flux, ni converties ni incrustées). La piste sélectionnée arrive
+        // marquée DEFAULT=YES, donc AVPlayer l'active automatiquement.
         profile.subtitleProfiles = [
             SubtitleProfile(format: "vtt", method: "Hls"),
-            SubtitleProfile(format: "srt", method: "External"),
-            SubtitleProfile(format: "ass", method: "External"),
-            SubtitleProfile(format: "ssa", method: "External"),
-            SubtitleProfile(format: "sub", method: "External"),
+            SubtitleProfile(format: "webvtt", method: "Hls"),
+            SubtitleProfile(format: "srt", method: "Hls"),
+            SubtitleProfile(format: "subrip", method: "Hls"),
+            SubtitleProfile(format: "ass", method: "Hls"),
+            SubtitleProfile(format: "ssa", method: "Hls"),
+            SubtitleProfile(format: "ttml", method: "Embed"),
+            // Formats image encodés dans la vidéo
             SubtitleProfile(format: "pgssub", method: "Encode"),
             SubtitleProfile(format: "dvdsub", method: "Encode"),
-            SubtitleProfile(format: "dvbsub", method: "Encode")
+            SubtitleProfile(format: "dvbsub", method: "Encode"),
+            SubtitleProfile(format: "xsub", method: "Encode")
         ]
 
         // Codec Profiles - Conditions selon les capacités
         profile.codecProfiles = buildCodecProfiles(capabilities: capabilities)
 
         return profile
+    }
+
+    /// Crée un profil optimisé pour iOS/iPadOS basé sur les capacités détectées
+    /// - Parameter forceAudioTranscode: voir `tvOSProfile(maxBitrate:forceAudioTranscode:)`
+    static func iOSProfile(maxBitrate: Int? = nil, forceAudioTranscode: Bool = false) -> DeviceProfile {
+        let capabilities = DeviceCapabilities.current
+
+        var profile = DeviceProfile()
+
+        // Bitrate plus conservateur pour mobile (réseau cellulaire possible)
+        let defaultBitrate = capabilities.maxResolution == .uhd4K ? 100_000_000 : 20_000_000
+        let bitrate = maxBitrate ?? defaultBitrate
+        profile.maxStreamingBitrate = bitrate
+        profile.maxStaticBitrate = bitrate
+        profile.musicStreamingTranscodingBitrate = 192000
+
+        var videoCodecs: [String] = []
+        if capabilities.supportsHEVC {
+            videoCodecs.append("hevc")
+        }
+        videoCodecs.append("h264")
+        if capabilities.supportsAV1 {
+            videoCodecs.append("av1")
+        }
+        let videoCodecString = videoCodecs.joined(separator: ",")
+
+        let audioCodecs = "aac,ac3,eac3,alac,flac"
+
+        profile.directPlayProfiles = buildDirectPlayProfiles(
+            videoCodecs: videoCodecString,
+            audioCodecs: audioCodecs,
+            capabilities: capabilities
+        )
+
+        profile.transcodingProfiles = [
+            TranscodingProfile(
+                type: "Video",
+                container: "mp4",
+                videoCodec: videoCodecString,
+                audioCodec: forceAudioTranscode ? audioFallbackTranscodeCodec : audioCodecs,
+                context: "Streaming",
+                protocol: "hls",
+                maxAudioChannels: "6",
+                minSegments: 2,
+                breakOnNonKeyFrames: true,
+                enableSubtitlesInManifest: true
+            )
+        ]
+
+        profile.subtitleProfiles = [
+            SubtitleProfile(format: "vtt", method: "Hls"),
+            SubtitleProfile(format: "webvtt", method: "Hls"),
+            SubtitleProfile(format: "srt", method: "Hls"),
+            SubtitleProfile(format: "subrip", method: "Hls"),
+            SubtitleProfile(format: "ass", method: "Hls"),
+            SubtitleProfile(format: "ssa", method: "Hls"),
+            SubtitleProfile(format: "ttml", method: "Embed"),
+            SubtitleProfile(format: "pgssub", method: "Encode"),
+            SubtitleProfile(format: "dvdsub", method: "Encode"),
+            SubtitleProfile(format: "dvbsub", method: "Encode"),
+            SubtitleProfile(format: "xsub", method: "Encode")
+        ]
+
+        profile.codecProfiles = buildCodecProfiles(capabilities: capabilities)
+
+        return profile
+    }
+
+    /// Sélectionne automatiquement le bon profil selon la plateforme
+    static func currentProfile(maxBitrate: Int? = nil, forceAudioTranscode: Bool = false) -> DeviceProfile {
+        #if os(tvOS)
+        return tvOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
+        #else
+        return iOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
+        #endif
     }
 
     /// Construit les profils Direct Play selon les capacités
@@ -297,6 +391,11 @@ struct PlaybackInfoRequest: Codable {
     var mediaSourceId: String?
     var deviceProfile: DeviceProfile?
     var autoOpenLiveStream: Bool?
+    /// false = le serveur doit fournir une TranscodingUrl (HLS, remux en
+    /// copie quand les codecs sont compatibles) au lieu du fichier brut.
+    /// nil = non envoyé, comportement serveur par défaut
+    var enableDirectPlay: Bool?
+    var enableDirectStream: Bool?
 
     enum CodingKeys: String, CodingKey {
         case userId = "UserId"
@@ -304,6 +403,8 @@ struct PlaybackInfoRequest: Codable {
         case mediaSourceId = "MediaSourceId"
         case deviceProfile = "DeviceProfile"
         case autoOpenLiveStream = "AutoOpenLiveStream"
+        case enableDirectPlay = "EnableDirectPlay"
+        case enableDirectStream = "EnableDirectStream"
     }
 }
 

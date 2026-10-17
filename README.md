@@ -1,162 +1,79 @@
-# xfinn - Jellyfin Client for tvOS
+# xfinn — Jellyfin client for Apple TV
 
-A beautiful native tvOS client for Jellyfin media servers. Stream your personal movie and TV show collection directly on your Apple TV.
+A native tvOS client for [Jellyfin](https://jellyfin.org) media servers, built with SwiftUI and AVKit. Browse your movies, shows and music and play them with Apple's native player.
 
 ![tvOS](https://img.shields.io/badge/tvOS-18.6+-purple)
-![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![Swift](https://img.shields.io/badge/Swift-5-orange)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## Features
 
-- **Native tvOS Experience**
-  - Beautiful glass-morphism design
-  - Smooth animations and transitions
-  - Optimized for Apple TV remote navigation
+### Sign-in
+- Automatic discovery of Jellyfin servers on the local network
+- Manual server address (with or without scheme and port)
+- Username/password or **Quick Connect** (approve a code from another device, no typing on the remote)
+- Recent servers, session stored in the Keychain
 
-- **Media Playback**
-  - Direct Play for compatible formats
-  - Transcoding support with quality selection (Auto, 4K, 1080p, 720p, etc.)
-  - Resume playback across devices
-  - Auto-play next episode
-  - Subtitle support (multiple formats)
+### Browsing
+- Home screen with a hero banner, Continue Watching, recently added and favorites
+- Libraries with sorting, an unwatched filter and server-side pagination
+- Series pages with season chips and episode cards (progress, watched state)
+- Global search across movies, shows, episodes and music
+- Mark as watched/unwatched and add to favorites from any card (long press)
+- **Top Shelf** extension with Continue Watching, and deep links into the app
 
-- **Library Management**
-  - Browse all your libraries (Movies, TV Shows, Music, etc.)
-  - Full series navigation (Series → Seasons → Episodes)
-  - Search across your entire media collection
-  - Recently added and continue watching sections
+### Playback
+- Device profile built from the actual Apple TV hardware (HEVC, HDR10, HDR10+, Dolby Vision, AV1)
+- Direct Play when the file is natively supported, HLS (fMP4) transcoding or remuxing otherwise — the server decides
+- Fragmented MP4 files are detected and remuxed to HLS instead of Direct Play, which AVPlayer cannot load in reasonable time
+- Automatic fallbacks: HLS retry when Direct Play fails, AAC audio retry when a transcoded stream is rejected
+- In-player panels on tvOS: audio track, streaming quality (Auto, Maximum, 120 Mbps down to 4 Mbps) and technical details
+- Text subtitles delivered as native HLS renditions (with a timing fix for Jellyfin's WebVTT segments); image subtitles are burned in
+- Skip Intro / Credits / Recap using Jellyfin media segments, with an optional auto-skip for intros
+- Resume where you left off, progress reported to the server, next-episode countdown
 
-- **Multi-language Support**
-  - English, French, Spanish, Portuguese
-  - Automatic language detection based on device settings
+### Music
+- Artists, albums and tracks
+- Full-screen player with repeat modes, plus a floating mini player while browsing
+- Now Playing and remote control integration
 
-## Screenshots
-
-| Home | Library | Detail |
-|------|---------|--------|
-| ![Home](screenshots/home.png) | ![Library](screenshots/library.png) | ![Detail](screenshots/detail.png) |
+### Languages
+English, French, Spanish and Portuguese, following the device language.
 
 ## Requirements
 
-- **tvOS 18.6+**
-- **Jellyfin Server 10.8+**
-- **Apple TV 4K** (recommended) or Apple TV HD
+- Apple TV running **tvOS 18.6** or later
+- A Jellyfin server (developed and tested against **Jellyfin 12**; skip segments need a server that provides media segments, 10.10 or later)
+- Xcode with the tvOS 18.6 SDK or later (developed with Xcode 27)
 
-## Installation
+## Building
 
-### From Source
+1. Clone the repository and open `xfinn.xcodeproj`.
+2. For the `xfinn` and `TopShelf` targets, select your own development team and change the bundle identifiers (`doriang.xfinn`, `doriang.xfinn.TopShelf`).
+3. Change the App Group (`group.doriang.xfinn`) in both entitlements files (`Config/`) and in `TopShelf/TopShelfContentProvider.swift`. The app and the Top Shelf extension share the session through it.
+4. Select an Apple TV device or simulator and run.
 
-1. Clone the repository
-```bash
-git clone https://github.com/Glob0x17/xfinn.git
-```
+Unit tests live in `xfinnTests` and cover the pure logic (device profile, HLS playlist rewriting, MP4 layout detection, URL handling, sorting…).
 
-2. Open the project in Xcode
-```bash
-cd xfinn
-open xfinn.xcodeproj
-```
-
-3. Select your Apple TV as the build target
-
-4. Build and run (⌘+R)
-
-### From App Store
-
-Coming soon!
-
-## Usage
-
-### First Launch
-
-1. Launch xfinn on your Apple TV
-2. Enter your Jellyfin server URL (e.g., `http://192.168.1.100:8096`)
-3. Enter your Jellyfin username and password
-4. Enjoy your media!
-
-### Navigation
-
-- **Touch Surface** - Navigate through menus
-- **Play/Pause** - Control video playback
-- **Menu Button** - Go back / Access options
-- **Swipe Down** - Access playback controls during video
-
-## Architecture
-
-The app follows the **MVVM** (Model-View-ViewModel) architecture pattern:
+## Project structure
 
 ```
 xfinn/
+├── App/            Entry point, root view, navigation destinations
 ├── Core/
-│   ├── Models/          # Data models (MediaItem, User, etc.)
-│   ├── Services/        # JellyfinService, AuthService, PlaybackService
-│   └── ViewModels/      # BaseViewModel, shared logic
-├── Features/
-│   ├── Home/            # Home screen with Continue Watching
-│   ├── Library/         # Library browsing
-│   ├── Search/          # Search functionality
-│   ├── Series/          # TV series navigation
-│   ├── Player/          # Video playback
-│   └── Settings/        # App settings
-├── Shared/
-│   ├── Components/      # Reusable UI components
-│   ├── Extensions/      # Swift extensions
-│   └── Theme/           # App theming (AppTheme)
-└── Resources/
-    ├── Assets.xcassets  # Images and app icons
-    └── Localizable/     # Localization strings (EN, FR, ES, PT)
+│   ├── Coordinators/   Navigation (single NavigationStack path)
+│   ├── Models/         Jellyfin models, device profile, capabilities
+│   ├── Services/       Auth, media, playback, player, Keychain, discovery
+│   └── ViewModels/
+├── Features/       Authentication, Home, Library, Series, Media, Music, Search, Settings
+├── Shared/         Theme, reusable components, extensions
+└── Resources/      Localizations
+TopShelf/           Top Shelf extension
+xfinnTests/         Unit tests
 ```
 
-## Jellyfin API
-
-xfinn uses the following Jellyfin API endpoints:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /System/Info/Public` | Server information |
-| `POST /Users/AuthenticateByName` | Authentication |
-| `GET /Users/{userId}/Views` | Library list |
-| `GET /Users/{userId}/Items` | Media items |
-| `GET /Items/{itemId}/PlaybackInfo` | Playback URLs |
-| `POST /Sessions/Playing` | Report playback start |
-| `POST /Sessions/Progress` | Report progress |
-| `POST /Sessions/Stopped` | Report playback stop |
-
-## Tech Stack
-
-- **SwiftUI** - Declarative UI framework
-- **AVKit / AVPlayer** - Native video playback
-- **Combine** - Reactive state management
-- **async/await** - Modern Swift concurrency
-- **HLS Streaming** - HTTP Live Streaming for transcoded content
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Privacy
-
-xfinn does not collect any personal data. All communication happens directly between your Apple TV and your Jellyfin server. See our [Privacy Policy](https://xfinn.flyc.fr/privacy-policy.html) for more details.
+The app follows MVVM. `JellyfinService` is the façade used by the views; it delegates to dedicated services (`AuthService`, `MediaService`, `PlaybackService`). Playback is handled by `PlayerManager` around `AVPlayer` and `AVPlayerViewController`.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Jellyfin](https://jellyfin.org/) - The amazing open-source media server
-- [Swiftfin](https://github.com/jellyfin/Swiftfin) - Reference implementation
-
-## Author
-
-**Dorian Galiana** - 2025
-
----
-
-Made with ❤️ for the Jellyfin community
+MIT — see [LICENSE](LICENSE).

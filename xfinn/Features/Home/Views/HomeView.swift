@@ -16,6 +16,15 @@ private struct ParticleData: Identifiable {
     let yRatio: CGFloat  // Ratio 0-1 pour la position Y
 }
 
+/// Enum consolidé pour la gestion du focus dans HomeView
+enum HomeFocus: Hashable {
+    case heroPlay
+    case heroDetails
+    case searchButton
+    case librariesButton
+    case mediaItem(String)
+}
+
 /// Vue d'accueil moderne avec design Liquid Glass
 struct HomeView: View {
     // MARK: - Dependencies
@@ -29,21 +38,21 @@ struct HomeView: View {
 
     // MARK: - UI State (reste dans la vue car purement UI)
 
-    @State private var showSearchView = false
     @Namespace private var focusNamespace
-    @FocusState private var focusedItem: String?
-    @FocusState private var isSearchButtonFocused: Bool
-    @FocusState private var isLibraryButtonFocused: Bool
+    @FocusState private var focus: HomeFocus?
+    @State private var showLogoutConfirmation = false
 
-    // Particules pré-calculées pour éviter les re-renders
-    private let particles: [ParticleData] = (0..<8).map { index in
-        ParticleData(
+    // Particules déterministes pour éviter les variations visuelles entre affichages
+    private static let particlePreset: [ParticleData] = (0..<8).map { index in
+        let value = Double(index + 1)
+        return ParticleData(
             id: index,
-            size: CGFloat.random(in: 200...400),
-            xRatio: CGFloat.random(in: 0...1),
-            yRatio: CGFloat.random(in: 0...1)
+            size: CGFloat(220 + ((index * 37) % 160)),
+            xRatio: CGFloat((sin(value * 1.7) + 1.0) * 0.5),
+            yRatio: CGFloat((cos(value * 2.1) + 1.0) * 0.5)
         )
     }
+    private let particles = particlePreset
 
     // MARK: - Initialization
 
@@ -66,7 +75,8 @@ struct HomeView: View {
                             .fill(
                                 RadialGradient(
                                     colors: [
-                                        AppTheme.primary.opacity(0.15),
+                                        AppTheme.secondary.opacity(0.18),
+                                        AppTheme.tertiary.opacity(0.10),
                                         .clear
                                     ],
                                     center: .center,
@@ -83,13 +93,24 @@ struct HomeView: View {
                     }
                 }
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
                 
                 // Contenu
+                GeometryReader { geo in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 60) {
+                    #if os(tvOS)
+                    let sectionSpacing: CGFloat = 36
+                    #else
+                    let sectionSpacing: CGFloat = 20
+                    #endif
+                    VStack(alignment: .leading, spacing: sectionSpacing) {
                         // En-tête moderne
                         headerView
-                            .padding(.top, 20)
+                            .padding(.top, 10)
+
+                        if let featuredItem = featuredItem {
+                            featuredHeroView(featuredItem)
+                        }
 
                         // Section "À reprendre"
                         if viewModel.hasResumeItems {
@@ -98,10 +119,10 @@ struct HomeView: View {
                                 icon: "play.circle.fill",
                                 items: viewModel.resumeItems,
                                 jellyfinService: jellyfinService,
-                                accentColor: .appPrimary,
+                                accentColor: .appSecondary,
                                 focusNamespace: focusNamespace,
                                 isFirstCarousel: true,
-                                focusedItem: $focusedItem
+                                focus: $focus
                             )
                         }
 
@@ -112,205 +133,458 @@ struct HomeView: View {
                                 icon: "sparkles",
                                 items: viewModel.recentItems,
                                 jellyfinService: jellyfinService,
-                                accentColor: .appSecondary,
+                                accentColor: .appTertiary,
                                 focusNamespace: focusNamespace,
                                 isFirstCarousel: !viewModel.hasResumeItems,
-                                focusedItem: $focusedItem
+                                focus: $focus
+                            )
+                        }
+
+                        // Section "Favoris"
+                        if viewModel.hasFavoriteItems {
+                            MediaCarousel(
+                                title: "home.favorites".localized,
+                                icon: "heart.fill",
+                                items: viewModel.favoriteItems,
+                                jellyfinService: jellyfinService,
+                                accentColor: .appTertiary,
+                                focusNamespace: focusNamespace,
+                                isFirstCarousel: !viewModel.hasResumeItems && !viewModel.hasRecentItems,
+                                focus: $focus
                             )
                         }
 
                         // Espace pour le bas
-                        Color.clear
-                            .frame(height: 40)
+                        Color.clear.frame(height: 24)
                     }
+                    .frame(width: geo.size.width, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .padding(.bottom, 24)
                 }
+                }
+                .animation(AppTheme.standardAnimation, value: viewModel.hasResumeItems)
+                .animation(AppTheme.standardAnimation, value: viewModel.hasRecentItems)
+                #if os(tvOS)
                 .focusScope(focusNamespace)
+                .onMoveCommand(perform: handleVerticalRailNavigation)
+                #endif
             }
             .toolbar {
-                // Toolbar simplifiée avec juste le bouton de déconnexion
-                ToolbarItem(placement: .topBarTrailing) {
+                #if os(tvOS)
+                let toolbarIconSize: CGFloat = 26
+                let toolbarLabelSize: CGFloat = 19
+                #else
+                let toolbarIconSize: CGFloat = 18
+                let toolbarLabelSize: CGFloat = 13
+                #endif
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        withAnimation(AppTheme.standardAnimation) {
-                            jellyfinService.logout()
-                        }
+                        navigationCoordinator.navigateToMusicLibrary()
                     } label: {
-                        Image(systemName: "power")
-                            .font(.system(size: 26))
-                            .foregroundColor(.appError)
+                        HStack(spacing: 6) {
+                            Image(systemName: "music.note")
+                                .font(.system(size: toolbarIconSize))
+                            Text("music.library_title".localized)
+                                .font(.system(size: toolbarLabelSize, weight: .semibold))
+                        }
+                        .foregroundColor(.appSecondary)
                     }
                     #if os(tvOS)
-                    .focusable(false) // Désactiver le focus par défaut sur tvOS
+                    .focusable(false)
                     #endif
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showLogoutConfirmation = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: toolbarIconSize))
+                            Text("settings.sign_out".localized)
+                                .font(.system(size: toolbarLabelSize, weight: .semibold))
+                        }
+                        .foregroundColor(.appError)
+                    }
+                    #if os(tvOS)
+                    .focusable(false)
+                    #endif
+                }
+            }
+            .alert("settings.sign_out_confirm".localized, isPresented: $showLogoutConfirmation) {
+                Button("common.cancel".localized, role: .cancel) {}
+                Button("settings.sign_out".localized, role: .destructive) {
+                    withAnimation(AppTheme.standardAnimation) {
+                        jellyfinService.logout()
+                    }
+                }
+            } message: {
+                Text("settings.sign_out_message".localized)
             }
             .overlay {
                 if viewModel.loadingState.isLoading {
                     modernLoadingView
+                } else if viewModel.loadingState.isError {
+                    ZStack {
+                        AppTheme.backgroundGradient.ignoresSafeArea()
+                        ErrorStateView(
+                            message: viewModel.errorMessage ?? "error.generic".localized
+                        ) {
+                            Task { await viewModel.loadContent() }
+                        }
+                    }
                 }
             }
-            .navigationDestination(isPresented: $showSearchView) {
-                SearchView(jellyfinService: jellyfinService)
-            }
+            // Seuls points d'entrée des écrans poussés (voir AppDestinations)
             .navigationDestination(for: MediaItem.self) { item in
-                MediaDetailView(item: item, jellyfinService: jellyfinService)
-                    .id(item.id) // 🔥 Force SwiftUI à recréer la vue quand l'ID change
+                MediaItemDestination(item: item, jellyfinService: jellyfinService)
+            }
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteDestination(route: route, jellyfinService: jellyfinService)
             }
         }
-        .onAppear {
+        .preferredColorScheme(.dark)
+        .task {
+            // .task gère automatiquement l'annulation quand la vue disparaît
             if !viewModel.hasLoaded, jellyfinService.isAuthenticated {
-                Task {
-                    await viewModel.loadContent()
-                }
+                await viewModel.loadContent()
             }
         }
     }
+
+    #if os(tvOS)
+    private func handleVerticalRailNavigation(_ direction: MoveCommandDirection) {
+        guard case .mediaItem(let currentId) = focus else { return }
+
+        switch direction {
+        case .down:
+            guard let sourceIndex = viewModel.resumeItems.firstIndex(where: { $0.id == currentId }),
+                  !viewModel.recentItems.isEmpty else { return }
+            let targetIndex = min(sourceIndex, viewModel.recentItems.count - 1)
+            focus = .mediaItem(viewModel.recentItems[targetIndex].id)
+
+        case .up:
+            guard let sourceIndex = viewModel.recentItems.firstIndex(where: { $0.id == currentId }),
+                  !viewModel.resumeItems.isEmpty else { return }
+            let targetIndex = min(sourceIndex, viewModel.resumeItems.count - 1)
+            focus = .mediaItem(viewModel.resumeItems[targetIndex].id)
+
+        default:
+            break
+        }
+    }
+    #endif
     
     // MARK: - Header View
     
+    #if os(tvOS)
+    private static let headerHPadding: CGFloat = 52
+    private static let headerIconSize: CGFloat = 58
+    private static let headerTitleSize: CGFloat = 34
+    private static let headerSubtitleSize: CGFloat = 18
+    private static let headerTaglineSize: CGFloat = 22
+    private static let headerIconFontSize: CGFloat = 20
+    private static let headerAppIconSize: CGFloat = 26
+    private static let headerLabelFontSize: CGFloat = 19
+    private static let headerPillHPadding: CGFloat = 24
+    #else
+    private static let headerHPadding: CGFloat = 16
+    private static let headerIconSize: CGFloat = 44
+    private static let headerTitleSize: CGFloat = 20
+    private static let headerSubtitleSize: CGFloat = 12
+    private static let headerTaglineSize: CGFloat = 13
+    private static let headerIconFontSize: CGFloat = 14
+    private static let headerAppIconSize: CGFloat = 16
+    private static let headerLabelFontSize: CGFloat = 13
+    private static let headerPillHPadding: CGFloat = 14
+    #endif
+
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 30) {
-            // 🎯 Ligne du haut : Logo + Bouton recherche (toujours accessible)
-            HStack(spacing: 15) {
-                // Logo XFINN
-                HStack(spacing: 15) {
-                    Image(systemName: "play.tv.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.accent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: "play.tv.fill")
+                    .font(.system(size: Self.headerAppIconSize))
+                    .foregroundStyle(AppTheme.accentGradient)
+
+                VStack(alignment: .leading, spacing: 2) {
                     Text("app.name".localized)
-                        .font(.system(size: 42, weight: .black, design: .rounded))
+                        .font(.system(size: Self.headerTitleSize, weight: .black, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.white, AppTheme.accent],
+                                colors: [.white, AppTheme.tertiary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
+                    if let user = jellyfinService.currentUser {
+                        Text("\("home.hello".localized) \(user.name)")
+                            .font(.system(size: Self.headerSubtitleSize, weight: .medium))
+                            .foregroundStyle(Color.appTextSecondary)
+                            .lineLimit(1)
+                    } else {
+                        Text("home.welcome".localized)
+                            .font(.system(size: Self.headerSubtitleSize, weight: .medium))
+                            .foregroundStyle(Color.appTextSecondary)
+                    }
                 }
-                
+
                 Spacer()
-                
-                // 🔍 Bouton de recherche + Bouton bibliothèques côte à côte
-                HStack(spacing: 20) {
-                    // Bouton de recherche
+
+                HStack(spacing: 8) {
                     Button {
-                        showSearchView = true
+                        navigationCoordinator.navigateToSearch()
                     } label: {
-                        HStack(spacing: 15) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 24))
-                            Text("home.search".localized)
-                                .font(.system(size: 22, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.appTextPrimary)
-                        .padding(.horizontal, 30)
-                        .padding(.vertical, 15)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(AppTheme.glassBackground)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(AppTheme.glassStroke, lineWidth: 1.5)
-                                )
-                        )
+                        headerActionLabel(systemName: "magnifyingglass",
+                                          title: "home.search".localized)
                     }
-                    .buttonStyle(CustomCardButtonStyle(cornerRadius: 20))
-                    .focused($isSearchButtonFocused)
-                    
-                    // Bouton bibliothèques (mini version)
-                    NavigationLink {
-                        LibraryView(jellyfinService: jellyfinService)
-                    } label: {
-                        HStack(spacing: 15) {
-                            Image(systemName: "square.grid.2x2.fill")
-                                .font(.system(size: 24))
-                            Text("home.libraries".localized)
-                                .font(.system(size: 22, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.appTextPrimary)
-                        .padding(.horizontal, 30)
-                        .padding(.vertical, 15)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(AppTheme.glassBackground)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(AppTheme.glassStroke, lineWidth: 1.5)
-                                )
-                        )
+                    #if os(tvOS)
+                    .buttonStyle(CustomCardButtonStyle(cornerRadius: 29))
+                    .focused($focus, equals: .searchButton)
+                    #endif
+
+                    NavigationLink(value: AppRoute.libraries) {
+                        headerActionLabel(systemName: "square.grid.2x2.fill",
+                                          title: "home.libraries".localized)
                     }
-                    .buttonStyle(CustomCardButtonStyle(cornerRadius: 20))
-                    .focused($isLibraryButtonFocused)
+                    #if os(tvOS)
+                    .buttonStyle(CustomCardButtonStyle(cornerRadius: 29))
+                    .focused($focus, equals: .librariesButton)
+                    #endif
                 }
             }
-            .padding(.horizontal, 60)
-            #if os(tvOS)
-            .focusSection() // Section de focus dédiée aux boutons du header
-            #endif
-            
-            // Ligne message de bienvenue
-            HStack(alignment: .top, spacing: 20) {
-                // Message de bienvenue
-                HStack(spacing: 15) {
-                    if let user = jellyfinService.currentUser {
-                        // Avatar glass
-                        ZStack {
-                            Circle()
-                                .fill(AppTheme.glassBackground)
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Circle()
-                                        .stroke(AppTheme.glassStroke, lineWidth: 2)
-                                )
-                            
-                            Text(String(user.name.prefix(1)).uppercased())
-                                .font(.system(size: 35, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                        .glowing(color: .appPrimary, radius: 15)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("home.hello".localized)
-                                .font(.system(size: 28, weight: .medium))
-                                .foregroundStyle(Color.appTextSecondary)
-                            
-                            Text(user.name)
-                                .font(.system(size: 48, weight: .bold))
-                                .foregroundStyle(
+            .padding(.horizontal, Self.headerHPadding)
+
+            Text("home.what_to_watch".localized)
+                .font(.system(size: Self.headerTaglineSize, weight: .medium))
+                .foregroundStyle(Color.appTextTertiary)
+                .padding(.horizontal, Self.headerHPadding)
+        }
+        #if os(tvOS)
+        .focusSection()
+        #endif
+    }
+
+    /// Pastille de navigation icône + libellé : le texte rend la destination
+    /// explicite (UI 10-foot, navigation à la télécommande)
+    private func headerActionLabel(systemName: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemName)
+                .font(.system(size: Self.headerIconFontSize, weight: .semibold))
+            Text(title)
+                .font(.system(size: Self.headerLabelFontSize, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.appTextPrimary)
+        .padding(.horizontal, Self.headerPillHPadding)
+        .frame(height: Self.headerIconSize)
+        .background(
+            Capsule()
+                .fill(AppTheme.glassBackground)
+                .overlay(
+                    Capsule()
+                        .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                )
+        )
+    }
+
+    private var featuredItem: MediaItem? {
+        viewModel.resumeItems.first ?? viewModel.recentItems.first
+    }
+
+    #if os(tvOS)
+    private static let heroHeight: CGFloat = 610
+    private static let heroTitleSize: CGFloat = 54
+    private static let heroDescSize: CGFloat = 22
+    private static let heroDescMaxWidth: CGFloat = 920
+    private static let heroBtnTitleSize: CGFloat = 22
+    private static let heroBtnIconSize: CGFloat = 19
+    private static let heroPadH: CGFloat = 46
+    private static let heroPadV: CGFloat = 36
+    private static let heroOuterPadH: CGFloat = 52
+    #else
+    private static let heroHeight: CGFloat = 340
+    private static let heroTitleSize: CGFloat = 22
+    private static let heroDescSize: CGFloat = 13
+    private static let heroDescMaxWidth: CGFloat = 360
+    private static let heroBtnTitleSize: CGFloat = 14
+    private static let heroBtnIconSize: CGFloat = 12
+    private static let heroPadH: CGFloat = 16
+    private static let heroPadV: CGFloat = 20
+    private static let heroOuterPadH: CGFloat = 16
+    #endif
+
+    private func featuredHeroView(_ item: MediaItem) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            // Image en background pour ne pas affecter le layout
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .overlay {
+                    AsyncImage(url: URL(string: jellyfinService.getImageURL(itemId: item.id))) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure:
+                            Rectangle()
+                                .fill(
                                     LinearGradient(
-                                        colors: [.white, AppTheme.accent],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                                        colors: [Color.gray.opacity(0.35), Color.black.opacity(0.25)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
                                     )
                                 )
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("home.welcome".localized)
-                                .font(.system(size: 48, weight: .bold))
-                                .foregroundStyle(Color.appTextPrimary)
+                        default:
+                            Color.clear
                         }
                     }
                 }
-                
-                Spacer()
+                .clipped()
+                .allowsHitTesting(false)
+
+            LinearGradient(
+                colors: [
+                    .clear,
+                    .black.opacity(0.45),
+                    .black.opacity(0.85)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(heroSourceText(for: item))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.glassBackground)
+                            .overlay(
+                                Capsule()
+                                    .stroke(AppTheme.glassStroke, lineWidth: 1)
+                            )
+                    )
+
+                Text(item.displayTitle)
+                    .font(.system(size: Self.heroTitleSize, weight: .black, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(2)
+
+                HStack(spacing: 10) {
+                    if let year = item.productionYear {
+                        heroChip(systemName: "calendar", text: String(year))
+                    }
+                    if let rating = item.communityRating {
+                        heroChip(systemName: "star.fill", text: String(format: "%.1f", rating))
+                    }
+                    heroChip(systemName: "sparkles.tv", text: item.type)
+                }
+
+                if let overview = item.overview, !overview.isEmpty {
+                    Text(overview)
+                        .font(.system(size: Self.heroDescSize, weight: .regular))
+                        .foregroundStyle(Color.white.opacity(0.92))
+                        .lineLimit(3)
+                        #if os(tvOS)
+                        .frame(maxWidth: Self.heroDescMaxWidth, alignment: .leading)
+                        #endif
+                }
+
+                HStack(spacing: 12) {
+                    if item.type == "Series" || item.type == "Season" {
+                        NavigationLink(value: item) {
+                            heroPrimaryAction(title: "media.play".localized, icon: "play.fill")
+                        }
+                        .buttonStyle(CustomCardButtonStyle(cornerRadius: 10))
+                        .focused($focus, equals: .heroPlay)
+                    } else {
+                        Button {
+                            navigationCoordinator.navigateTo(item: item, autoPlay: true)
+                        } label: {
+                            heroPrimaryAction(title: "media.play".localized, icon: "play.fill")
+                        }
+                        .buttonStyle(CustomCardButtonStyle(cornerRadius: 10))
+                        .focused($focus, equals: .heroPlay)
+                    }
+
+                    NavigationLink(value: item) {
+                        heroSecondaryAction(title: "tech.details".localized, icon: "info.circle")
+                    }
+                    .buttonStyle(CustomCardButtonStyle(cornerRadius: 10))
+                    .focused($focus, equals: .heroDetails)
+                }
             }
-            .padding(.horizontal, 60)
-            
-            // Sous-titre
-            Text("home.what_to_watch".localized)
-                .font(.system(size: 26, weight: .medium))
-                .foregroundStyle(Color.appTextTertiary)
-                .padding(.horizontal, 60)
+            .padding(.horizontal, Self.heroPadH)
+            .padding(.vertical, Self.heroPadV)
         }
+        .frame(height: Self.heroHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(AppTheme.glassStroke.opacity(0.6), lineWidth: 1.2)
+        )
+        .padding(.horizontal, Self.heroOuterPadH)
+        #if os(tvOS)
+        .focusSection()
+        #endif
     }
-    
+
+    private func heroSourceText(for item: MediaItem) -> String {
+        if viewModel.resumeItems.contains(item) {
+            return "home.continue_watching".localized
+        }
+        return "home.recently_added".localized
+    }
+
+    private func heroChip(systemName: String, text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemName)
+                .font(.system(size: 11, weight: .semibold))
+            Text(text)
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.black.opacity(0.35), in: Capsule())
+    }
+
+    private func heroPrimaryAction(title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: Self.heroBtnIconSize, weight: .bold))
+            Text(title)
+                .font(.system(size: Self.heroBtnTitleSize, weight: .bold))
+        }
+        .foregroundStyle(Color.black)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func heroSecondaryAction(title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: Self.heroBtnIconSize, weight: .semibold))
+            Text(title)
+                .font(.system(size: Self.heroBtnTitleSize, weight: .semibold))
+        }
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.black.opacity(0.45))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                )
+        )
+    }
+
     // MARK: - Modern Loading View
     
     private var modernLoadingView: some View {
@@ -333,9 +607,9 @@ struct HomeView: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .scaleEffect(2.0)
-                        .tint(.appPrimary)
+                        .tint(.appSecondary)
                 }
-                .glowing(color: .appPrimary, radius: 30)
+                .glowing(color: .appSecondary, radius: 30)
                 
                 Text("home.loading_content".localized)
                     .font(.system(size: 26, weight: .medium))
@@ -359,40 +633,41 @@ struct MediaCarousel: View {
     let accentColor: Color
     let focusNamespace: Namespace.ID
     let isFirstCarousel: Bool
-    @FocusState.Binding var focusedItem: String?
+    @FocusState.Binding var focus: HomeFocus?
     
+    #if os(tvOS)
+    private static let sectionTitleSize: CGFloat = 31
+    private static let sectionIconSize: CGFloat = 18
+    private static let badgeSize: CGFloat = 17
+    private static let carouselHPad: CGFloat = 52
+    private static let cardSpacing: CGFloat = 18
+    #else
+    private static let sectionTitleSize: CGFloat = 18
+    private static let sectionIconSize: CGFloat = 14
+    private static let badgeSize: CGFloat = 12
+    private static let carouselHPad: CGFloat = 16
+    private static let cardSpacing: CGFloat = 10
+    #endif
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 25) {
+        VStack(alignment: .leading, spacing: 12) {
             // En-tête de section
-            HStack(spacing: 15) {
-                // Icône avec glass background
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(AppTheme.glassBackground)
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(AppTheme.glassStroke, lineWidth: 1.5)
-                        )
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 24))
-                        .foregroundColor(accentColor)
-                }
-                .glowing(color: accentColor, radius: 10)
-                
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: Self.sectionIconSize, weight: .semibold))
+                    .foregroundColor(accentColor)
                 Text(title)
-                    .font(.system(size: 38, weight: .bold))
+                    .font(.system(size: Self.sectionTitleSize, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
-                
+
                 Spacer()
-                
+
                 // Badge de compteur
                 Text("\(items.count)")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: Self.badgeSize, weight: .semibold))
                     .foregroundColor(accentColor)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(
                         Capsule()
                             .fill(AppTheme.glassBackground)
@@ -402,21 +677,13 @@ struct MediaCarousel: View {
                             )
                     )
             }
-            .padding(.horizontal, 60)
-            
+            .padding(.horizontal, Self.carouselHPad)
+
             // Carrousel
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 30) {
+                HStack(spacing: Self.cardSpacing) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        NavigationLink {
-                            if item.type == "Series" {
-                                SeriesDetailView(series: item, jellyfinService: jellyfinService)
-                            } else if item.type == "Season" {
-                                SeasonEpisodesView(season: item, jellyfinService: jellyfinService)
-                            } else {
-                                MediaDetailView(item: item, jellyfinService: jellyfinService)
-                            }
-                        } label: {
+                        NavigationLink(value: item) {
                             ModernMediaCard(
                                 item: item,
                                 jellyfinService: jellyfinService,
@@ -424,13 +691,18 @@ struct MediaCarousel: View {
                             )
                         }
                         .buttonStyle(CustomCardButtonStyle(cornerRadius: 20))
-                        .focused($focusedItem, equals: item.id)
+                        .focused($focus, equals: .mediaItem(item.id))
+                        #if os(tvOS)
                         .prefersDefaultFocus(isFirstCarousel && index == 0, in: focusNamespace)
+                        #endif
                     }
                 }
-                .padding(.horizontal, 60)
-                .padding(.vertical, 5) // Pour le shadow
+                .padding(.horizontal, Self.carouselHPad)
+                .padding(.vertical, 8)
             }
+            #if os(tvOS)
+            .scrollClipDisabled()
+            #endif
         }
     }
 }
@@ -439,12 +711,33 @@ struct MediaCarousel: View {
 
 /// Carte de média moderne avec design Liquid Glass
 struct ModernMediaCard: View {
+    #if os(tvOS)
+    private static let cardWidth: CGFloat = 360
+    private static let imageHeight: CGFloat = 530
+    private static let contentPadding: CGFloat = 18
+    private static let cardTitleSize: CGFloat = 22
+    private static let cardMetaSize: CGFloat = 16
+    private static let cardMetaIconSize: CGFloat = 14
+    private static let cardPlayIconSize: CGFloat = 24
+    #else
+    private static let cardWidth: CGFloat = 200
+    private static let imageHeight: CGFloat = 280
+    private static let contentPadding: CGFloat = 12
+    private static let cardTitleSize: CGFloat = 14
+    private static let cardMetaSize: CGFloat = 12
+    private static let cardMetaIconSize: CGFloat = 11
+    private static let cardPlayIconSize: CGFloat = 18
+    #endif
+
     let item: MediaItem
     let jellyfinService: JellyfinService
     let accentColor: Color
-    
-    @Environment(\.isFocused) private var isFocused: Bool
-    
+
+    /// UserData avec overrides locaux (marquer vu/favori sans re-fetch)
+    private var effectiveUserData: UserData? {
+        jellyfinService.effectiveUserData(for: item)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Image avec overlay
@@ -470,7 +763,7 @@ struct ModernMediaCard: View {
                             Color.gray.opacity(0.2)
                             ProgressView()
                                 .scaleEffect(1.5)
-                                .tint(.appPrimary)
+                                .tint(accentColor)
                         }
                     case .success(let image):
                         image
@@ -507,7 +800,7 @@ struct ModernMediaCard: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 
                 // Barre de progression pour les médias en cours
-                if let userData = item.userData,
+                if let userData = effectiveUserData,
                    userData.playbackPositionTicks > 0,
                    let duration = item.duration {
                     VStack(spacing: 0) {
@@ -523,53 +816,60 @@ struct ModernMediaCard: View {
                             // Progress
                             Capsule()
                                 .fill(accentColor)
-                                .frame(width: (400 - 40) * (userData.playbackPosition / duration), height: 6)
+                                .frame(
+                                    width: (Self.cardWidth - (Self.contentPadding * 2)) * (duration > 0 ? userData.playbackPosition / duration : 0),
+                                    height: 6
+                                )
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, Self.contentPadding)
                         .padding(.bottom, 15)
                     }
                 }
             }
-            .frame(width: 400, height: 600)
+            .frame(width: Self.cardWidth, height: Self.imageHeight)
+            .overlay(alignment: .topTrailing) {
+                MediaCardBadges(userData: effectiveUserData)
+                    .padding(8)
+            }
             .clipped()
             
             // Informations avec glass background
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
                 // Titre
                 Text(item.displayTitle)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: Self.cardTitleSize, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
-                
+
                 // Métadonnées
-                HStack(spacing: 15) {
+                HStack(spacing: 10) {
                     // Année
                     if let year = item.productionYear {
-                        HStack(spacing: 5) {
+                        HStack(spacing: 3) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 14))
+                                .font(.system(size: Self.cardMetaIconSize))
                             Text(String(year))
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: Self.cardMetaSize, weight: .medium))
                         }
                         .foregroundStyle(Color.appTextSecondary)
                     }
-                    
+
                     // Séparateur
                     if item.productionYear != nil && item.communityRating != nil {
                         Circle()
                             .fill(Color.appTextTertiary)
-                            .frame(width: 4, height: 4)
+                            .frame(width: 3, height: 3)
                     }
-                    
+
                     // Note
                     if let rating = item.communityRating {
-                        HStack(spacing: 5) {
+                        HStack(spacing: 3) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 14))
+                                .font(.system(size: Self.cardMetaIconSize))
                                 .foregroundColor(.yellow)
                             Text(String(format: "%.1f", rating))
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: Self.cardMetaSize, weight: .medium))
                                 .foregroundStyle(Color.appTextPrimary)
                         }
                     }
@@ -578,11 +878,11 @@ struct ModernMediaCard: View {
                     
                     // Icône lecture
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: Self.cardPlayIconSize))
                         .foregroundColor(accentColor)
                 }
             }
-            .padding(20)
+            .padding(Self.contentPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 0) // Pas de coins arrondis ici car déjà dans le parent
@@ -594,23 +894,8 @@ struct ModernMediaCard: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(AppTheme.glassStroke, lineWidth: 1.5)
         )
-        .frame(width: 400)
-    }
-}
-
-// MARK: - Legacy Carousel Media Card (pour compatibilité)
-
-/// Carte de média pour le carrousel (version legacy)
-struct CarouselMediaCard: View {
-    let item: MediaItem
-    let jellyfinService: JellyfinService
-    
-    var body: some View {
-        ModernMediaCard(
-            item: item,
-            jellyfinService: jellyfinService,
-            accentColor: .appPrimary
-        )
+        .frame(width: Self.cardWidth)
+        .mediaContextMenu(item: item, jellyfinService: jellyfinService)
     }
 }
 

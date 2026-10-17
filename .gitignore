@@ -36,12 +36,6 @@ playground.xcworkspace
 Package.resolved
 
 # =============================================================================
-# Claude / AI
-# =============================================================================
-.claude/
-CLAUDE.md
-
-# =============================================================================
 # Documentation (hosted elsewhere)
 # =============================================================================
 *.md
@@ -71,7 +65,3 @@ AppIcons/
 *.p12
 *.mobileprovision
 Secrets/
-
-# Internal documentation
-xfinn/Documentation/
-xfinn/Docs/

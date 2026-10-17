@@ -20,6 +20,9 @@ final class HomeViewModel: BaseViewModel {
     /// Items récemment ajoutés
     @Published private(set) var recentItems: [MediaItem] = []
 
+    /// Favoris de l'utilisateur
+    @Published private(set) var favoriteItems: [MediaItem] = []
+
     /// Indique si le contenu a déjà été chargé
     @Published private(set) var hasLoaded = false
 
@@ -44,6 +47,10 @@ final class HomeViewModel: BaseViewModel {
         !recentItems.isEmpty
     }
 
+    var hasFavoriteItems: Bool {
+        !favoriteItems.isEmpty
+    }
+
     /// Indique si le contenu est vide (après chargement)
     var isEmpty: Bool {
         hasLoaded && resumeItems.isEmpty && recentItems.isEmpty
@@ -65,23 +72,38 @@ final class HomeViewModel: BaseViewModel {
         setLoading()
 
         // Charger les données en parallèle
+        lastLoadError = nil
+
         async let resumeTask = loadResumeItems()
         async let recentTask = loadRecentItems()
+        async let favoritesTask = loadFavoriteItems()
 
         await resumeTask
         await recentTask
+        await favoritesTask
 
         withAnimation(AppTheme.standardAnimation) {
-            self.hasLoaded = true
-            self.setLoaded()
+            // Échec total (aucune section chargée) : afficher l'état d'erreur.
+            // Échec partiel : on affiche ce qu'on a.
+            if resumeItems.isEmpty && recentItems.isEmpty, let error = lastLoadError {
+                self.hasLoaded = false
+                self.setError(error)
+            } else {
+                self.hasLoaded = true
+                self.setLoaded()
+            }
         }
     }
+
+    /// Dernière erreur rencontrée pendant le chargement parallèle
+    private var lastLoadError: Error?
 
     /// Rafraîchit le contenu
     func refresh() async {
         hasLoaded = false
         resumeItems = []
         recentItems = []
+        favoriteItems = []
         await loadContent()
     }
 
@@ -106,10 +128,25 @@ final class HomeViewModel: BaseViewModel {
                 self.resumeItems = items
             }
         } catch {
+            lastLoadError = error
             #if DEBUG
             print("[HomeViewModel] Error loading resume items: \(error.localizedDescription)")
             #endif
             // Don't propagate error - continue with other data
+        }
+    }
+
+    private func loadFavoriteItems() async {
+        do {
+            let items = try await jellyfinService.getFavoriteItems(limit: 10)
+            withAnimation(AppTheme.standardAnimation) {
+                self.favoriteItems = items
+            }
+        } catch {
+            // Section optionnelle : silencieux (les autres sections suffisent)
+            #if DEBUG
+            print("[HomeViewModel] Error loading favorites: \(error.localizedDescription)")
+            #endif
         }
     }
 
@@ -120,6 +157,7 @@ final class HomeViewModel: BaseViewModel {
                 self.recentItems = items
             }
         } catch {
+            lastLoadError = error
             #if DEBUG
             print("[HomeViewModel] Error loading recent items: \(error.localizedDescription)")
             #endif

@@ -2,7 +2,7 @@
 //  PlaybackTechnicalInfo.swift
 //  xfinn
 //
-//  Created by Claude on 10/01/2026.
+//  Created by Dorian Galiana on 10/01/2026.
 //  Technical playback information for display in player info panel.
 //
 

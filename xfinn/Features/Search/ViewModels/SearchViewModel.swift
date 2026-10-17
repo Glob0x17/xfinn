@@ -17,6 +17,9 @@ enum SearchFilter: String, CaseIterable {
     case movies
     case series
     case episodes
+    case albums
+    case artists
+    case tracks
 
     var displayName: String {
         switch self {
@@ -24,6 +27,9 @@ enum SearchFilter: String, CaseIterable {
         case .movies: return "search.filter.movies".localized
         case .series: return "search.filter.series".localized
         case .episodes: return "search.filter.episodes".localized
+        case .albums: return "search.filter.albums".localized
+        case .artists: return "search.filter.artists".localized
+        case .tracks: return "search.filter.tracks".localized
         }
     }
 
@@ -33,17 +39,12 @@ enum SearchFilter: String, CaseIterable {
         case .movies: return "film"
         case .series: return "tv"
         case .episodes: return "list.bullet"
+        case .albums: return "music.note.list"
+        case .artists: return "music.mic"
+        case .tracks: return "music.note"
         }
     }
 
-    var itemType: String? {
-        switch self {
-        case .all: return nil
-        case .movies: return "Movie"
-        case .series: return "Series"
-        case .episodes: return "Episode"
-        }
-    }
 }
 
 // MARK: - Search ViewModel
@@ -85,13 +86,14 @@ final class SearchViewModel: BaseViewModel {
                 return item.type == "Series"
             case .episodes:
                 return item.type == "Episode"
+            case .albums:
+                return item.type == "MusicAlbum"
+            case .artists:
+                return item.type == "MusicArtist"
+            case .tracks:
+                return item.type == "Audio"
             }
         }
-    }
-
-    /// Indique si des résultats existent
-    var hasResults: Bool {
-        !searchResults.isEmpty
     }
 
     /// Indique si la recherche est vide
@@ -117,6 +119,7 @@ final class SearchViewModel: BaseViewModel {
     func performSearch() async {
         guard !searchQuery.isEmpty else { return }
 
+        errorMessage = nil
         isSearching = true
 
         do {
@@ -132,6 +135,7 @@ final class SearchViewModel: BaseViewModel {
             #endif
             withAnimation(AppTheme.standardAnimation) {
                 self.isSearching = false
+                self.setError(error)
             }
         }
     }

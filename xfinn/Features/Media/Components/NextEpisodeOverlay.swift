@@ -27,12 +27,12 @@ struct NextEpisodeOverlay: View {
             Spacer()
             
             // Card de l'épisode suivant
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: AppTheme.sp(30)) {
                 // En-tête avec compte à rebours
                 HStack(alignment: .center, spacing: 20) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("next_episode.title".localized)
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.system(size: AppTheme.fs(28), weight: .semibold))
                             .foregroundStyle(.white)
 
                         Text("next_episode.auto_play".localized)
@@ -60,7 +60,7 @@ struct NextEpisodeOverlay: View {
                             .trim(from: 0, to: CGFloat(countdown) / 10.0)
                             .stroke(
                                 LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primary.opacity(0.7)],
+                                    colors: [AppTheme.secondary, AppTheme.tertiary.opacity(0.85)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -71,7 +71,7 @@ struct NextEpisodeOverlay: View {
                         
                         // Nombre
                         Text("\(countdown)")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .font(.system(size: AppTheme.fs(44), weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.white)
                     }
@@ -111,11 +111,11 @@ struct NextEpisodeOverlay: View {
                                 )
                             
                             Image(systemName: "play.tv.fill")
-                                .font(.system(size: 50))
+                                .font(.system(size: AppTheme.fs(50)))
                                 .foregroundStyle(.white.opacity(0.3))
                         }
                     }
-                    .frame(width: 260, height: 146)
+                    .frame(width: AppTheme.dm(260), height: AppTheme.dm(146))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay {
                         RoundedRectangle(cornerRadius: 16)
@@ -128,13 +128,13 @@ struct NextEpisodeOverlay: View {
                                 lineWidth: 1.5
                             )
                     }
-                    .shadow(color: AppTheme.primary.opacity(0.3), radius: 20, x: 0, y: 10)
+                    .shadow(color: AppTheme.secondary.opacity(0.3), radius: 20, x: 0, y: 10)
                     
                     // Détails
                     VStack(alignment: .leading, spacing: 12) {
                         // Titre de l'épisode
                         Text(nextEpisode.displayTitle)
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.system(size: AppTheme.fs(26), weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(2)
                         
@@ -151,13 +151,13 @@ struct NextEpisodeOverlay: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.fill")
                                     .font(.system(size: 16))
-                                Text(formatDuration(duration))
+                                Text(duration.formattedDuration)
                                     .font(.system(size: 16, weight: .medium))
                             }
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(AppTheme.secondary)
                         }
                     }
-                    .frame(maxWidth: 440, alignment: .leading)
+                    .frame(maxWidth: AppTheme.dm(440), alignment: .leading)
                 }
                 
                 // Boutons d'action avec focus tvOS
@@ -166,9 +166,9 @@ struct NextEpisodeOverlay: View {
                     Button(action: onCancel) {
                         HStack(spacing: 12) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: AppTheme.fs(20)))
                             Text("common.cancel".localized)
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: AppTheme.fs(20), weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
@@ -180,9 +180,9 @@ struct NextEpisodeOverlay: View {
                     Button(action: onPlayNext) {
                         HStack(spacing: 12) {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: AppTheme.fs(20)))
                             Text("next_episode.play_now".localized)
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.system(size: AppTheme.fs(20), weight: .bold))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
@@ -191,8 +191,8 @@ struct NextEpisodeOverlay: View {
                     .focused($focusedButton, equals: .playNext)
                 }
             }
-            .padding(40)
-            .frame(width: 840)
+            .padding(AppTheme.sp(40))
+            .frame(width: AppTheme.dm(840))
             .background {
                 // Fond avec effet glass moderne
                 RoundedRectangle(cornerRadius: 24)
@@ -211,8 +211,8 @@ struct NextEpisodeOverlay: View {
                             .stroke(
                                 LinearGradient(
                                     colors: [
-                                        AppTheme.primary.opacity(0.5),
-                                        AppTheme.primary.opacity(0.2)
+                                        AppTheme.secondary.opacity(0.45),
+                                        AppTheme.tertiary.opacity(0.2)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -222,8 +222,8 @@ struct NextEpisodeOverlay: View {
                     }
                     .shadow(color: .black.opacity(0.6), radius: 40, x: 0, y: 20)
             }
-            .padding(.trailing, 80)
-            .padding(.bottom, 120)
+            .padding(.trailing, AppTheme.sp(80))
+            .padding(.bottom, AppTheme.sp(120))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .task {
@@ -233,16 +233,6 @@ struct NextEpisodeOverlay: View {
         }
     }
     
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-        
-        if hours > 0 {
-            return "\(hours)h \(minutes)min"
-        } else {
-            return "\(minutes)min"
-        }
-    }
 }
 
 // MARK: - Custom Button Style pour tvOS
@@ -262,8 +252,8 @@ struct NextEpisodeButtonStyle: ButtonStyle {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    AppTheme.primary,
-                                    AppTheme.primary.opacity(0.8)
+                                    AppTheme.secondary,
+                                    AppTheme.tertiary.opacity(0.9)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -273,12 +263,12 @@ struct NextEpisodeButtonStyle: ButtonStyle {
                             // Bordure violette quand focusé
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(
-                                    isFocused ? AppTheme.primary : Color.clear,
+                                    isFocused ? AppTheme.tertiary : Color.clear,
                                     lineWidth: isFocused ? 4 : 0
                                 )
                         }
                         .shadow(
-                            color: isFocused ? AppTheme.primary.opacity(0.8) : AppTheme.primary.opacity(0.3),
+                            color: isFocused ? AppTheme.tertiary.opacity(0.8) : AppTheme.secondary.opacity(0.3),
                             radius: isFocused ? 20 : 10,
                             x: 0,
                             y: isFocused ? 8 : 4
@@ -307,7 +297,7 @@ struct NextEpisodeButtonStyle: ButtonStyle {
                         .overlay {
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(
-                                    isFocused ? AppTheme.primary : Color.white.opacity(0.3),
+                                    isFocused ? AppTheme.secondary : Color.white.opacity(0.3),
                                     lineWidth: isFocused ? 4 : 2
                                 )
                         }
