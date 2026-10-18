@@ -471,7 +471,7 @@ final class PlayerManager: ObservableObject {
                 audioStreamIndex: audioIndex,
                 subtitleStreamIndex: subtitleIndex,
                 forceAudioTranscode: audioFallback,
-                allowDirectPlay: !directPlayDisabled
+                allowDirectPlay: !directPlayDisabled && !Self.isAirPlayOutput
             )
             guard generation == playbackGeneration else { return }
 
@@ -647,6 +647,41 @@ final class PlayerManager: ObservableObject {
 
         if let option {
             playerItem.select(option, in: group)
+        }
+    }
+
+    /// Direct Play : choisit la piste audio dans le fichier (l'AudioStreamIndex envoyé à Jellyfin ne
+    /// sert qu'au transcodage). Sans ça, un MP4 dont toutes les pistes audio sont actives les joue
+    /// simultanément. En HLS, le serveur ne fournit déjà que la piste demandée.
+    private func applyAudioSelection(to playerItem: AVPlayerItem) async {
+        guard playbackMode == .video, !isTranscoding, let item = currentItem, item.audioStreams.count > 1 else { return }
+        let streams = item.audioStreams
+        let selectedIndex = currentAudioStreamIndex
+
+        // Pistes regroupées en alternatives : sélection native, une seule est jouée
+        if let group = try? await playerItem.asset.loadMediaSelectionGroup(for: .audible), group.options.count > 1 {
+            let languages = group.options.map { $0.extendedLanguageTag ?? $0.locale?.identifier }
+            if let position = AudioTrackMatching.trackPosition(streams: streams, selectedIndex: selectedIndex, trackLanguages: languages) {
+                playerItem.select(group.options[position], in: group)
+            }
+            return
+        }
+
+        // Pistes indépendantes, toutes actives : n'en laisser qu'une
+        var audioTracks: [(track: AVPlayerItemTrack, language: String?)] = []
+        for track in playerItem.tracks {
+            guard let assetTrack = track.assetTrack, assetTrack.mediaType == .audio else { continue }
+            var language = try? await assetTrack.load(.extendedLanguageTag)
+            if language == nil {
+                language = try? await assetTrack.load(.languageCode)
+            }
+            audioTracks.append((track, language))
+        }
+        guard audioTracks.count > 1,
+              let position = AudioTrackMatching.trackPosition(streams: streams, selectedIndex: selectedIndex,
+                                                               trackLanguages: audioTracks.map(\.language)) else { return }
+        for (offset, entry) in audioTracks.enumerated() {
+            entry.track.isEnabled = offset == position
         }
     }
 
@@ -1083,6 +1118,14 @@ final class PlayerManager: ObservableObject {
         player?.currentItem === playerItem
     }
 
+    /// Sortie audio AirPlay (HomePod, enceintes AirPlay). Sur cette route, AVPlayer passe en AirPlay
+    /// tamponné (latence 2 s) et perd l'audio d'un fichier lu en Direct Play au bout de 20 s à 2 min, sans
+    /// aucun événement : lecture « en cours », même route, mais plus de son (constaté sous tvOS 27, aussi
+    /// avec le lecteur natif de Swiftfin). Le même fichier remuxé en HLS par le serveur n'est pas touché.
+    static var isAirPlayOutput: Bool {
+        AVAudioSession.sharedInstance().currentRoute.outputs.contains { $0.portType == .airPlay }
+    }
+
     /// Relance possible : vidéo transcodée, échec avant la première image,
     /// et pas déjà en repli
     private var canRetryWithAudioFallback: Bool {
@@ -1167,7 +1210,10 @@ final class PlayerManager: ObservableObject {
                     // réglages système de sous-titres — DEFAULT=YES n'est qu'un
                     // indice. La sélection de l'utilisateur doit être appliquée
                     // explicitement sur le groupe legible.
-                    Task { await self.applySubtitleSelection(to: playerItem) }
+                    Task {
+                        await self.applyAudioSelection(to: playerItem)
+                        await self.applySubtitleSelection(to: playerItem)
+                    }
                 case .failed:
                     guard self.isCurrent(playerItem) else { return }
                     let message = playerItem.error?.localizedDescription ?? "error.generic".localized
