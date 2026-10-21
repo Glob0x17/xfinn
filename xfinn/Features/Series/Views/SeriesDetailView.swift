@@ -66,32 +66,37 @@ struct SeriesDetailView: View {
 
     private var heroSection: some View {
         ZStack(alignment: .bottomLeading) {
-            // Backdrop plein cadre
-            AsyncImage(url: URL(string: viewModel.backdropURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure, .empty:
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    AppTheme.secondary.opacity(0.35),
-                                    AppTheme.tertiary.opacity(0.25)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                @unknown default:
-                    EmptyView()
+            // Backdrop plein cadre. L'image est posée en overlay d'un cadre de taille fixe : en `.fill`
+            // directement dans la pile, elle impose sa largeur naturelle et fait déborder tout l'écran
+            // sur iPhone (titre, synopsis et épisodes coupés).
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.heroHeight)
+                .overlay {
+                    AsyncImage(url: URL(string: viewModel.backdropURL)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure, .empty:
+                            Rectangle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            AppTheme.secondary.opacity(0.35),
+                                            AppTheme.tertiary.opacity(0.25)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: Self.heroHeight)
-            .clipped()
+                .clipped()
 
             // Scrim : fondu vers le fond de l'app pour la lisibilité du texte
             LinearGradient(

@@ -38,6 +38,8 @@
 "login.discovered_servers" = "Serveurs découverts";
 "login.recent_servers" = "Serveurs récents";
 "login.searching_servers" = "Recherche de serveurs sur le réseau...";
+"login.servers" = "Serveurs";
+"login.recent_badge" = "Récent";
 "login.or_manual" = "ou saisir manuellement";
 
 // MARK: - Home
@@ -66,6 +68,7 @@
 "media.now_playing" = "Lecture en cours";
 "media.resume_at_time" = "Reprendre à %@";
 "media.rewatch" = "Revoir";
+"media.resume" = "Reprendre";
 "media.play" = "Lire";
 "media.playback_error" = "Erreur de lecture";
 "media.series" = "Série";
@@ -205,6 +208,9 @@
 "media_type.series" = "Série";
 "media_type.episode" = "Épisode";
 "media_type.season" = "Saison";
+"media_type.music_album" = "Album";
+"media_type.music_artist" = "Artiste";
+"media_type.audio" = "Titre";
 
 // MARK: - Subtitles
 "subtitles.none" = "Aucun";
@@ -278,6 +284,9 @@
 "player.skip_intro" = "Passer l'intro";
 "player.skip_outro" = "Passer le générique";
 "player.skip_recap" = "Passer le récap";
+"player.stalled_title" = "La lecture ne démarre pas";
+"player.stalled_message" = "Le flux ne se charge plus. Vous pouvez relancer la lecture à cet endroit, attendre encore ou fermer le lecteur.";
+"player.keep_waiting" = "Attendre";
 "settings.playback" = "Lecture";
 "settings.auto_skip_intro" = "Passer les intros automatiquement";
 "settings.auto_skip_intro_footer" = "Nécessite des segments détectés par votre serveur (ex. plugin Intro Skipper). Les génériques et récaps gardent toujours un bouton manuel.";

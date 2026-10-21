@@ -86,7 +86,8 @@ struct SearchView: View {
     
     private var searchHeader: some View {
         HStack(spacing: 20) {
-            // Bouton retour
+            #if os(tvOS)
+            // Bouton retour (iOS : celui de la barre de navigation suffit)
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: AppTheme.fs(30), weight: .semibold))
@@ -102,7 +103,8 @@ struct SearchView: View {
                     )
             }
             .buttonStyle(CustomCardButtonStyle(cornerRadius: 30))
-            
+            #endif
+
             // Barre de recherche
             HStack(spacing: 15) {
                 Image(systemName: "magnifyingglass")
@@ -149,7 +151,7 @@ struct SearchView: View {
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 15) {
-                ForEach(SearchFilter.allCases, id: \.self) { filter in
+                ForEach(viewModel.availableFilters, id: \.self) { filter in
                     FilterPill(
                         filter: filter,
                         isSelected: viewModel.selectedFilter == filter,
@@ -161,6 +163,7 @@ struct SearchView: View {
             }
             .padding(.vertical, 8)
         }
+        .task { await viewModel.loadAvailableFilters() }
     }
     
     // MARK: - Empty State
@@ -377,7 +380,7 @@ struct SearchResultCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: typeIcon)
                         .font(.system(size: 14))
-                    Text(item.type)
+                    Text(item.localizedTypeName)
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundColor(.appSecondary)

@@ -11,6 +11,9 @@ import SwiftUI
 struct xfinnApp: App {
     @StateObject private var jellyfinService: JellyfinService
     @StateObject private var navigationCoordinator = NavigationCoordinator()
+    #if os(iOS)
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
 
     init() {
         // Cache HTTP global : profite à tous les AsyncImage (posters/backdrops),

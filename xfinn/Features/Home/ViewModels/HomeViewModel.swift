@@ -26,6 +26,10 @@ final class HomeViewModel: BaseViewModel {
     /// Indique si le contenu a déjà été chargé
     @Published private(set) var hasLoaded = false
 
+    /// Le serveur a une bibliothèque musicale : sans elle, l'entrée Musique
+    /// de l'accueil n'ouvrirait qu'une erreur. Inconnu (échec réseau) = affichée
+    @Published private(set) var hasMusicLibrary = false
+
     // MARK: - Dependencies
 
     private let jellyfinService: JellyfinService
@@ -77,10 +81,12 @@ final class HomeViewModel: BaseViewModel {
         async let resumeTask = loadResumeItems()
         async let recentTask = loadRecentItems()
         async let favoritesTask = loadFavoriteItems()
+        async let musicTask = loadMusicAvailability()
 
         await resumeTask
         await recentTask
         await favoritesTask
+        await musicTask
 
         withAnimation(AppTheme.standardAnimation) {
             // Échec total (aucune section chargée) : afficher l'état d'erreur.
@@ -120,6 +126,15 @@ final class HomeViewModel: BaseViewModel {
     }
 
     // MARK: - Private Methods
+
+    private func loadMusicAvailability() async {
+        do {
+            let libraries = try await jellyfinService.getLibraries()
+            hasMusicLibrary = libraries.contains { $0.collectionType == "music" }
+        } catch {
+            hasMusicLibrary = true
+        }
+    }
 
     private func loadResumeItems() async {
         do {

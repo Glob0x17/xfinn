@@ -161,6 +161,18 @@ final class LoginViewModel: BaseViewModel {
         discoveryService.stopDiscovery()
     }
 
+    /// Serveurs récents puis découverts, sans doublon (même identifiant
+    /// Jellyfin ou même adresse) : liste unique de l'écran iPhone
+    var mergedServers: [ServerItem] {
+        var merged = recentServers
+        for server in discoveredServers where !merged.contains(where: {
+            $0.id == server.id || $0.displayURL == server.displayURL
+        }) {
+            merged.append(server)
+        }
+        return merged
+    }
+
     /// Sélectionne un serveur (découvert ou récent) pour la connexion
     func selectServer(_ server: ServerItem) {
         serverURL = server.url

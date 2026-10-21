@@ -15,6 +15,9 @@ struct AlbumDetailView: View {
     @State private var tracks: [MediaItem] = []
     @State private var isLoading = true
     @State private var hasLoaded = false
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @State private var errorMessage: String?
     @State private var showError = false
     @State private var showMusicPlayer = false
@@ -173,8 +176,21 @@ struct AlbumDetailView: View {
 
     // MARK: - Album Header
 
+    /// iPhone (largeur compacte) : pochette au-dessus des informations, sinon titre et métadonnées
+    /// sont écrasés à côté de la pochette
+    private var isCompactWidth: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
+
     private var albumHeader: some View {
-        HStack(spacing: AppTheme.sp(40)) {
+        let layout = isCompactWidth
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: AppTheme.sp(40)))
+            : AnyLayout(HStackLayout(spacing: AppTheme.sp(40)))
+        return layout {
             // Pochette de l'album
             ZStack {
                 AsyncImage(url: URL(string: jellyfinService.getImageURL(itemId: album.id))) { phase in
@@ -249,6 +265,7 @@ struct AlbumDetailView: View {
                             .font(.system(size: AppTheme.fs(20)))
                         Text("music.tracks_count".localized(with: tracks.count))
                             .font(.system(size: AppTheme.fs(24), weight: .medium))
+                            .fixedSize()
                     }
                     .foregroundColor(.appTextSecondary)
 
@@ -264,7 +281,9 @@ struct AlbumDetailView: View {
                     }
                 }
 
-                Spacer()
+                if !isCompactWidth {
+                    Spacer()
+                }
 
                 // Bouton "Tout lire"
                 Button {

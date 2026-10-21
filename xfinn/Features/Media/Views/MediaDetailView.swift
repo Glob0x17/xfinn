@@ -21,6 +21,12 @@ struct MediaDetailView: View {
     // MARK: - UI State
 
     @State private var isPlaybackActive = false
+    #if os(iOS)
+    @State private var showPlayerOptions = false
+    @State private var playerOptionsHideTask: Task<Void, Never>?
+    @State private var stallWatchdog: Task<Void, Never>?
+    @State private var showStallAlert = false
+    #endif
     @State private var showQualityPicker = false
     @State private var showSubtitlePicker = false
     @State private var showAudioPicker = false
@@ -362,19 +368,39 @@ struct MediaDetailView: View {
     }
 
     private func actionButtons() -> some View {
+        #if os(tvOS)
         HStack(spacing: 10) {
             playButton()
-            qualityButton()
-            if !viewModel.item.subtitleStreams.isEmpty {
-                subtitleButton()
-            }
-            if viewModel.item.hasMultipleAudioTracks {
-                audioButton()
-            }
-            watchedButton()
-            favoriteButton()
+            secondaryActionButtons()
         }
         .padding(.top, 4)
+        #else
+        // iPhone/iPad : Lire sur toute la largeur, les réglages en dessous
+        // (sur une seule ligne, ils écrasaient le bouton Lire)
+        VStack(alignment: .leading, spacing: 10) {
+            playButton()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    secondaryActionButtons()
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.top, 4)
+        #endif
+    }
+
+    @ViewBuilder
+    private func secondaryActionButtons() -> some View {
+        qualityButton()
+        if !viewModel.item.subtitleStreams.isEmpty {
+            subtitleButton()
+        }
+        if viewModel.item.hasMultipleAudioTracks {
+            audioButton()
+        }
+        watchedButton()
+        favoriteButton()
     }
 
     private func watchedButton() -> some View {
@@ -408,6 +434,14 @@ struct MediaDetailView: View {
         .overlay(Capsule().stroke(AppTheme.glassStroke, lineWidth: 1.5))
     }
 
+    /// Une position enregistrée prime sur « vu » : le bouton propose alors la
+    /// reprise (cf. handlePlayButtonTap), son libellé doit le dire
+    private var playButtonTitle: String {
+        if viewModel.hasPlaybackProgress { return "media.resume".localized }
+        if viewModel.currentUserData?.played == true { return "media.rewatch".localized }
+        return "media.play".localized
+    }
+
     private func playButton() -> some View {
         Button(action: handlePlayButtonTap) {
             HStack(spacing: 8) {
@@ -419,13 +453,18 @@ struct MediaDetailView: View {
                 } else {
                     Image(systemName: "play.fill")
                         .font(.system(size: AppTheme.fs(23)))
-                    Text(viewModel.currentUserData?.played == true ? "media.rewatch".localized : "media.play".localized)
+                    Text(playButtonTitle)
                         .font(.system(size: AppTheme.fs(25), weight: .semibold))
                 }
             }
+            .lineLimit(1)
             .foregroundColor(.black)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            #if !os(tvOS)
+            .frame(maxWidth: .infinity)
+            .contentShape(Capsule())
+            #endif
         }
         .background(Color.white)
         .clipShape(Capsule())
@@ -518,7 +557,12 @@ struct MediaDetailView: View {
             if let playerViewController = playerManager.playerViewController {
                 PlayerViewControllerRepresentable(
                     playerViewController: playerViewController,
-                    onDismiss: { isPlaybackActive = false }
+                    onDismiss: { isPlaybackActive = false },
+                    onTap: {
+                        #if os(iOS)
+                        togglePlayerOptions()
+                        #endif
+                    }
                 )
                 .id(ObjectIdentifier(playerViewController))
                 .ignoresSafeArea()
@@ -532,14 +576,44 @@ struct MediaDetailView: View {
                     .scaleEffect(1.5)
             }
 
-            // Overlay de buffering personnalisé (stall pendant la lecture)
+            // Overlay de buffering personnalisé (stall pendant la lecture).
+            // Purement informatif : il laisse passer les touchers, sinon un flux
+            // bloqué empêche de quitter le lecteur
             if playerManager.isBuffering {
                 Color.black.opacity(0.7)
                     .ignoresSafeArea()
+                    .allowsHitTesting(false)
 
                 BufferStatsOverlay(stats: playerManager.bufferStats)
+                    .allowsHitTesting(false)
                     .transition(.opacity.combined(with: .scale))
             }
+
+            #if os(iOS)
+            // Bouton fermer toujours accessible pendant un chargement (le lecteur
+            // natif et ses commandes peuvent être absents ou masqués)
+            if playerManager.isBuffering || playerManager.playerViewController == nil {
+                VStack {
+                    HStack {
+                        Button {
+                            isPlaybackActive = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Circle().fill(.ultraThinMaterial))
+                        }
+                        .accessibilityLabel("common.close".localized)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(.top, 8)
+                .padding(.leading, 16)
+                .zIndex(997)
+            }
+            #endif
 
             if viewModel.showNextEpisodeOverlay {
                 Color.black.opacity(0.4)
@@ -582,6 +656,22 @@ struct MediaDetailView: View {
             }
             #endif
 
+            #if os(iOS)
+            if showPlayerOptions, playerManager.playerViewController != nil {
+                VStack {
+                    HStack {
+                        Spacer()
+                        PlayerOptionsMenu(playerManager: playerManager)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 64)
+                .padding(.trailing, 16)
+                .transition(.opacity)
+                .zIndex(998)
+            }
+            #endif
+
             if viewModel.showNextEpisodeOverlay, let nextEpisode = viewModel.nextEpisode {
                 NextEpisodeOverlay(
                     nextEpisode: nextEpisode,
@@ -595,12 +685,60 @@ struct MediaDetailView: View {
                 .zIndex(1000)
             }
         }
+        #if os(iOS)
+        .onAppear {
+            OrientationLock.setPlayerVisible(true)
+            togglePlayerOptions()
+        }
+        .onDisappear {
+            OrientationLock.setPlayerVisible(false)
+            stallWatchdog?.cancel()
+        }
+        .onChange(of: playerManager.isBuffering) { _, buffering in
+            armStallWatchdog(buffering)
+        }
+        .alert("player.stalled_title".localized, isPresented: $showStallAlert) {
+            Button("common.retry".localized) { playerManager.retryCurrentPlayback() }
+            Button("player.keep_waiting".localized, role: .cancel) { armStallWatchdog(playerManager.isBuffering) }
+            Button("common.close".localized, role: .destructive) { isPlaybackActive = false }
+        } message: {
+            Text("player.stalled_message".localized)
+        }
+        .animation(.easeInOut(duration: 0.2), value: showPlayerOptions)
+        #endif
         .animation(.easeInOut(duration: 0.3), value: viewModel.showNextEpisodeOverlay)
         .animation(.easeInOut(duration: 0.2), value: playerManager.isBuffering)
         #if !os(tvOS)
         .animation(.easeInOut(duration: 0.25), value: playerManager.activeSegment)
         #endif
     }
+
+    #if os(iOS)
+    /// Chargement qui ne repart pas après 20 s : proposer de relancer ou de
+    /// fermer plutôt que de laisser le lecteur figé
+    private func armStallWatchdog(_ buffering: Bool) {
+        stallWatchdog?.cancel()
+        guard buffering else { return }
+        stallWatchdog = Task {
+            try? await Task.sleep(for: .seconds(20))
+            guard !Task.isCancelled, playerManager.isBuffering else { return }
+            showStallAlert = true
+        }
+    }
+
+    /// Le bouton d'options suit les commandes natives : il apparaît au tap
+    /// sur la vidéo et disparaît après quelques secondes
+    private func togglePlayerOptions() {
+        playerOptionsHideTask?.cancel()
+        showPlayerOptions.toggle()
+        guard showPlayerOptions else { return }
+        playerOptionsHideTask = Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            showPlayerOptions = false
+        }
+    }
+    #endif
 
     // MARK: - Alert Buttons
 
@@ -679,9 +817,10 @@ struct MediaDetailView: View {
 
     private func handlePlayButtonTap() {
         guard !isStartingPlayback else { return }
-        if let userData = viewModel.currentUserData,
-           userData.playbackPositionTicks > 0,
-           !userData.played {
+        // Même condition que la barre « Reprendre à » : une position enregistrée suffit, même si
+        // l'épisode est marqué vu (commencé ailleurs, ou marqué vu à la main) — sinon la fiche
+        // annonçait une reprise que le bouton ne proposait pas
+        if viewModel.hasPlaybackProgress {
             showResumeAlert = true
         } else {
             startPlayback(resumePosition: false)
@@ -700,8 +839,7 @@ struct MediaDetailView: View {
     private func startAutoPlay() {
         // Lecture directe : reprendre automatiquement là où on s'était
         // arrêté, comme l'app Apple TV
-        let canResume = (viewModel.currentUserData?.playbackPositionTicks ?? 0) > 0
-            && viewModel.currentUserData?.played != true
+        let canResume = viewModel.hasPlaybackProgress
         // Laisse l'animation de navigation se terminer avant le plein écran
         startPlayback(resumePosition: canResume, delay: .milliseconds(500))
     }
@@ -839,24 +977,45 @@ struct MediaDetailView: View {
 struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
     let playerViewController: AVPlayerViewController
     let onDismiss: () -> Void
+    var onTap: () -> Void = {}
 
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         playerViewController.delegate = context.coordinator
+        #if os(iOS)
+        // Tap observé sans le consommer : les commandes natives restent actives
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+        tap.cancelsTouchesInView = false
+        tap.delegate = context.coordinator
+        playerViewController.view.addGestureRecognizer(tap)
+        #endif
         return playerViewController
     }
 
     func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onDismiss: onDismiss)
+        Coordinator(onDismiss: onDismiss, onTap: onTap)
     }
 
-    class Coordinator: NSObject, AVPlayerViewControllerDelegate {
+    class Coordinator: NSObject, AVPlayerViewControllerDelegate, UIGestureRecognizerDelegate {
         let onDismiss: () -> Void
+        let onTap: () -> Void
 
-        init(onDismiss: @escaping () -> Void) {
+        init(onDismiss: @escaping () -> Void, onTap: @escaping () -> Void) {
             self.onDismiss = onDismiss
+            self.onTap = onTap
             super.init()
+        }
+
+        @objc func handleTap() {
+            onTap()
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
         }
 
         #if os(tvOS)
@@ -869,9 +1028,38 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             _ playerViewController: AVPlayerViewController,
             willEndFullScreenPresentationWithAnimationCoordinator coordinator: UIViewControllerTransitionCoordinator
         ) {
-            coordinator.animate(alongsideTransition: nil) { _ in
+            // Au verrouillage de l'écran (lecture en AirPlay ou en image dans
+            // l'image), le lecteur signale aussi une fin de plein écran : ce n'est
+            // pas l'utilisateur qui ferme, la lecture doit continuer
+            guard UIApplication.shared.applicationState == .active,
+                  !isPictureInPictureActive else { return }
+            coordinator.animate(alongsideTransition: nil) { context in
+                guard !context.isCancelled else { return }
                 self.onDismiss()
             }
+        }
+
+        private var isPictureInPictureActive = false
+
+        func playerViewControllerWillStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
+            isPictureInPictureActive = true
+        }
+
+        func playerViewControllerDidStopPictureInPicture(_ playerViewController: AVPlayerViewController) {
+            isPictureInPictureActive = false
+        }
+
+        // Lecteur intégré à la vue (pas présenté) : rien à fermer au démarrage
+        // de l'image dans l'image, et l'interface est toujours là au retour
+        func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(_ playerViewController: AVPlayerViewController) -> Bool {
+            return false
+        }
+
+        func playerViewController(
+            _ playerViewController: AVPlayerViewController,
+            restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+        ) {
+            completionHandler(true)
         }
         #endif
     }

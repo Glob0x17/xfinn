@@ -127,7 +127,7 @@ struct ArtistDetailView: View {
         GridItem(.flexible(minimum: 350, maximum: 450), spacing: AppTheme.sp(40))
     ]
     #else
-    private static let albumColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+    private static let albumColumns = AppTheme.adaptiveColumns(phone: 140, pad: 200, spacing: 16)
     #endif
 
     private var albumsContent: some View {
@@ -260,9 +260,27 @@ struct AlbumCard: View {
     let album: MediaItem
     let jellyfinService: JellyfinService
 
+    /// tvOS : hauteur fixe ; iOS : carré à la largeur de la colonne
+    @ViewBuilder
+    private var albumArtFrame: some View {
+        #if os(tvOS)
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: AppTheme.dm(380))
+        #else
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+        #endif
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Pochette d'album
+            // Pochette d'album. Le cadre est fixé par la colonne et l'image posée
+            // en overlay : en .fill dans la pile, elle imposait sa largeur
+            // naturelle et débordait (coupée à gauche sur iPad)
+            albumArtFrame
+            .overlay {
             ZStack(alignment: .bottomLeading) {
                 // Background gradient
                 Rectangle()
@@ -317,7 +335,7 @@ struct AlbumCard: View {
                 .frame(height: 100)
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .frame(height: AppTheme.dm(380))
+            }
             .clipped()
 
             // Informations album

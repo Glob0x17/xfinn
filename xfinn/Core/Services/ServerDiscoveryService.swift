@@ -282,12 +282,85 @@ final class ServerDiscoveryService: ObservableObject {
             }
         }
 
+        let sendError = errno
         #if DEBUG
         if bytesSent > 0 {
             print("[ServerDiscovery] Broadcast sent (\(bytesSent) bytes)")
         } else {
-            print("[ServerDiscovery] Failed to send broadcast: \(errno)")
+            print("[ServerDiscovery] Failed to send broadcast: \(sendError)")
         }
         #endif
+
+        // iOS refuse le broadcast sans l'entitlement multicast d'Apple
+        // (EHOSTUNREACH) : repli en interrogeant chaque adresse du réseau local,
+        // l'envoi vers une adresse précise étant permis par l'accès au réseau local
+        if bytesSent < 0 {
+            sendUnicastSweep(message: messageData)
+        }
+    }
+
+    // MARK: - Private Methods - Unicast Fallback
+
+    /// Taille maximale de réseau balayé (un /22) : au-delà, trop de paquets
+    private static let maxSweepHosts: UInt32 = 1022
+
+    private func sendUnicastSweep(message: Data) {
+        let fd = socket
+        let port = jellyfinPort
+        let targets = Self.localSubnetHosts()
+        guard fd >= 0, !targets.isEmpty else { return }
+
+        #if DEBUG
+        print("[ServerDiscovery] Unicast fallback: \(targets.count) addresses")
+        #endif
+
+        queue.async {
+            var addr = sockaddr_in()
+            addr.sin_family = sa_family_t(AF_INET)
+            addr.sin_port = port.bigEndian
+            for (index, host) in targets.enumerated() {
+                addr.sin_addr.s_addr = host.bigEndian
+                _ = message.withUnsafeBytes { bufferPtr in
+                    withUnsafePointer(to: &addr) { addrPtr in
+                        addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                            sendto(fd, bufferPtr.baseAddress, message.count, 0, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+                        }
+                    }
+                }
+                // Petite pause régulière pour ne pas saturer le tampon d'envoi
+                if index % 32 == 31 { usleep(2_000) }
+            }
+        }
+    }
+
+    /// Adresses hôtes (ordre hôte) des réseaux IPv4 locaux actifs (Wi-Fi,
+    /// Ethernet), sans l'adresse de l'appareil lui-même
+    static func localSubnetHosts() -> [UInt32] {
+        var ifaddrPtr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddrPtr) == 0, let first = ifaddrPtr else { return [] }
+        defer { freeifaddrs(ifaddrPtr) }
+
+        var hosts: [UInt32] = []
+        var seenNetworks = Set<UInt32>()
+        for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let entry = pointer.pointee
+            let flags = Int32(entry.ifa_flags)
+            guard let address = entry.ifa_addr, let netmask = entry.ifa_netmask,
+                  address.pointee.sa_family == sa_family_t(AF_INET),
+                  flags & IFF_UP != 0, flags & IFF_LOOPBACK == 0,
+                  String(cString: entry.ifa_name).hasPrefix("en") else { continue }
+
+            let ip = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+            let mask = netmask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+            let hostCount = ~mask &- 1
+            let network = ip & mask
+            guard mask != 0, hostCount > 0, hostCount <= maxSweepHosts,
+                  seenNetworks.insert(network).inserted else { continue }
+
+            for offset in 1...hostCount where network + offset != ip {
+                hosts.append(network + offset)
+            }
+        }
+        return hosts
     }
 }
