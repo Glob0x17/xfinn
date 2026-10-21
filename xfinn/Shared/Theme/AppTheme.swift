@@ -24,9 +24,21 @@ struct AppTheme {
     static let spacingScale: CGFloat = 1.0
     static let dimScale: CGFloat = 1.0
     #else
-    static let fontScale: CGFloat = 0.55
-    static let spacingScale: CGFloat = 0.38
-    static let dimScale: CGFloat = 0.5
+    // iPad : écran plus grand et vu de plus loin qu'un iPhone, échelle
+    // intermédiaire entre l'iPhone et la TV
+    private static let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    static let fontScale: CGFloat = isPad ? 0.72 : 0.55
+    static let spacingScale: CGFloat = isPad ? 0.55 : 0.38
+    static let dimScale: CGFloat = isPad ? 0.7 : 0.5
+    #endif
+
+    #if !os(tvOS)
+    /// Grille iOS : largeur minimale d'une carte selon l'appareil — l'écran
+    /// en place autant qu'il peut (3 affiches sur iPhone, 5 à 7 sur iPad
+    /// selon l'orientation) au lieu d'un nombre de colonnes fixe
+    static func adaptiveColumns(phone: CGFloat, pad: CGFloat, spacing: CGFloat) -> [GridItem] {
+        [GridItem(.adaptive(minimum: isPad ? pad : phone), spacing: spacing)]
+    }
     #endif
 
     /// Scale a font size for the current platform

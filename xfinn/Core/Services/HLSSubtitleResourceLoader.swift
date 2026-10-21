@@ -38,9 +38,27 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         return URLSession(configuration: configuration)
     }()
 
-    init(mediaDuration: TimeInterval) {
+    /// Retirer du master la variante réencodée de secours (voir
+    /// `dropReencodedFallbackVariants`)
+    private let dropsReencodedFallback: Bool
+
+    private let lock = NSLock()
+    private var _didDropReencodedFallback = false
+
+    /// Le master servi à AVPlayer n'avait plus sa variante réencodée : un
+    /// échec avant la première image justifie une relance qui la garde
+    var didDropReencodedFallback: Bool {
+        lock.withLock { _didDropReencodedFallback }
+    }
+
+    init(mediaDuration: TimeInterval, dropsReencodedFallback: Bool = false) {
         // Durée inconnue : borne large, AVPlayer tronque à la durée réelle
         self.mediaDuration = mediaDuration > 0 ? mediaDuration : 4 * 3600
+        self.dropsReencodedFallback = dropsReencodedFallback
+    }
+
+    private func markDroppedReencodedFallback() {
+        lock.withLock { _didDropReencodedFallback = true }
     }
 
     /// URL proxifiée pour un master HLS de transcodage (nil si non applicable)
@@ -110,7 +128,9 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
 
             let processed: Data
             if realURL.path.hasSuffix("master.m3u8") {
-                processed = Self.rewriteMasterPlaylist(data, baseURL: realURL)
+                let dropped = dropsReencodedFallback && Self.hasReencodedFallbackToDrop(data)
+                if dropped { markDroppedReencodedFallback() }
+                processed = Self.rewriteMasterPlaylist(data, baseURL: realURL, dropReencodedFallback: dropped)
             } else {
                 processed = data
             }
@@ -132,10 +152,14 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
 
     /// Master : la vidéo part en direct (URLs absolues http), les playlists de
     /// sous-titres pointent vers nos playlists virtuelles (scheme custom)
-    static func rewriteMasterPlaylist(_ data: Data, baseURL: URL) -> Data {
+    static func rewriteMasterPlaylist(_ data: Data, baseURL: URL, dropReencodedFallback: Bool = false) -> Data {
         guard let text = String(data: data, encoding: .utf8) else { return data }
 
-        let lines = text.components(separatedBy: "\n").map { line -> String in
+        var variants = text.components(separatedBy: "\n")
+        if dropReencodedFallback {
+            variants = dropReencodedFallbackVariants(variants)
+        }
+        let lines = variants.map { line -> String in
             if line.hasPrefix("#EXT-X-MEDIA:") && line.contains("TYPE=SUBTITLES") {
                 return rewriteURIAttribute(in: line, baseURL: baseURL, keepInProxy: true)
             }
@@ -149,6 +173,32 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         }
 
         return Data(lines.joined(separator: "\n").utf8)
+    }
+
+    /// Source HDR copiée telle quelle : Jellyfin ajoute une variante de secours
+    /// H.264 SDR (`AllowVideoStreamCopy=false`, réencodage 4K + tone mapping à
+    /// ~8 i/s) que l'Apple TV choisit même sur une TV capable de HDR dès
+    /// qu'elle est réglée en SDR. On ne garde que les variantes copiées, s'il
+    /// en existe. TV réglée en SDR : AVPlayer refuse alors la variante HDR
+    /// (« ouverture impossible ») et PlayerManager relance avec le master
+    /// d'origine, variante réencodée comprise.
+    static func hasReencodedFallbackToDrop(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8) else { return false }
+        let lines = text.components(separatedBy: "\n")
+        return dropReencodedFallbackVariants(lines).count != lines.count
+    }
+
+    static func dropReencodedFallbackVariants(_ lines: [String]) -> [String] {
+        let isFallbackURI = { (line: String) in
+            !line.hasPrefix("#") && line.contains("AllowVideoStreamCopy=false")
+        }
+        let variantURIs = lines.indices.filter { $0 > 0 && lines[$0 - 1].hasPrefix("#EXT-X-STREAM-INF:") }
+        let fallbacks = Set(variantURIs.filter { isFallbackURI(lines[$0]) })
+        guard !fallbacks.isEmpty, fallbacks.count < variantURIs.count else { return lines }
+
+        return lines.indices.compactMap { index in
+            fallbacks.contains(index) || fallbacks.contains(index + 1) ? nil : lines[index]
+        }
     }
 
     /// URL du VTT fichier-entier correspondant à une playlist de sous-titres

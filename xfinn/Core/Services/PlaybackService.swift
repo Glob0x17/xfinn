@@ -69,7 +69,10 @@ final class PlaybackService {
         audioStreamIndex: Int? = nil,
         subtitleStreamIndex: Int? = nil,
         forceAudioTranscode: Bool = false,
-        allowDirectPlay: Bool = true
+        allowDirectPlay: Bool = true,
+        burnInSubtitles: Bool = false,
+        allowDirectStream: Bool = true,
+        requireStream: Bool = false
     ) async throws -> PlaybackResult {
         guard var urlComponents = URLComponents(string: "\(authService.baseURL)/Items/\(itemId)/PlaybackInfo") else {
             throw JellyfinError.invalidURL
@@ -89,7 +92,8 @@ final class PlaybackService {
         let maxBitrate = quality.maxBitrate ?? StreamQuality.maximum.rawValue
         let deviceProfile = DeviceProfile.currentProfile(
             maxBitrate: maxBitrate,
-            forceAudioTranscode: forceAudioTranscode
+            forceAudioTranscode: forceAudioTranscode,
+            burnInSubtitles: burnInSubtitles
         )
 
         // Créer la requête PlaybackInfo
@@ -100,7 +104,11 @@ final class PlaybackService {
             deviceProfile: deviceProfile,
             autoOpenLiveStream: true,
             enableDirectPlay: allowDirectPlay ? nil : false,
-            enableDirectStream: allowDirectPlay ? nil : false
+            // Sans lecture directe, le « direct stream » reste permis : c'est lui
+            // qui laisse Jellyfin copier la vidéo quand seul l'audio ou le
+            // conteneur doit changer (sinon : réencodage complet, ex. 4K DV
+            // réencodée en H.264 à 13 i/s)
+            enableDirectStream: allowDirectPlay || allowDirectStream ? nil : false
         )
 
         var request = authService.authenticatedRequest(for: url)
@@ -119,6 +127,40 @@ final class PlaybackService {
 
         guard let mediaSource = playbackInfoResponse.mediaSources?.first else {
             throw JellyfinError.responseError("error.no_media_source".localized)
+        }
+
+        // Aucun sous-titre demandé, mais Jellyfin active un sous-titre image
+        // (ex. piste « Forced » PGS par défaut) qu'il faudrait incruster :
+        // redemander sans sous-titre. Pas systématiquement : -1 retire aussi
+        // du manifest les pistes texte, que le menu natif propose
+        if subtitleStreamIndex == nil, mediaSource.defaultSubtitleIsImageBased {
+            return try await getPlaybackInfo(
+                itemId: itemId,
+                quality: quality,
+                audioStreamIndex: audioStreamIndex,
+                subtitleStreamIndex: -1,
+                forceAudioTranscode: forceAudioTranscode,
+                allowDirectPlay: allowDirectPlay,
+                burnInSubtitles: burnInSubtitles,
+                allowDirectStream: allowDirectStream,
+                requireStream: requireStream
+            )
+        }
+
+        // Flux HLS exigé (AirPlay) ou lecture directe interdite (MP4 fragmenté),
+        // mais Jellyfin répond par le fichier entier : redemander en interdisant
+        // lecture directe et direct stream, pour obtenir un remux HLS
+        if requireStream || !allowDirectPlay, allowDirectStream, mediaSource.transcodingUrl == nil {
+            return try await getPlaybackInfo(
+                itemId: itemId,
+                quality: quality,
+                audioStreamIndex: audioStreamIndex,
+                subtitleStreamIndex: subtitleStreamIndex,
+                forceAudioTranscode: forceAudioTranscode,
+                allowDirectPlay: false,
+                burnInSubtitles: burnInSubtitles,
+                allowDirectStream: false
+            )
         }
 
         // Déterminer l'URL de streaming
@@ -156,7 +198,8 @@ final class PlaybackService {
                     audioStreamIndex: audioStreamIndex,
                     subtitleStreamIndex: subtitleStreamIndex,
                     forceAudioTranscode: forceAudioTranscode,
-                    allowDirectPlay: false
+                    allowDirectPlay: false,
+                    burnInSubtitles: burnInSubtitles
                 )
             }
         }
@@ -371,4 +414,25 @@ final class PlaybackService {
         try response.validateJellyfinResponse()
     }
 
+    /// Arrête le transcodage d'une session et fait supprimer ses fichiers
+    /// (ce que fait le client web à l'arrêt). Sans cet appel, un flux
+    /// abandonné — relance pour une autre piste ou qualité, lecteur fermé —
+    /// garde ses segments dans le cache du serveur ; un remux file à plus de
+    /// 100x et écrit le film entier (2 Go pour un 1080p, 70 Go pour un remux
+    /// 4K), de quoi remplir le disque du serveur en une soirée
+    func stopActiveEncodings(playSessionId: String) async throws {
+        guard var components = URLComponents(string: "\(authService.baseURL)/Videos/ActiveEncodings") else {
+            throw JellyfinError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "deviceId", value: authService.deviceId),
+            URLQueryItem(name: "playSessionId", value: playSessionId)
+        ]
+        guard let url = components.url else { throw JellyfinError.invalidURL }
+
+        var request = authService.authenticatedRequest(for: url)
+        request.httpMethod = "DELETE"
+        let (_, response) = try await authService.session.data(for: request)
+        try response.validateJellyfinResponse()
+    }
 }

@@ -108,6 +108,21 @@ final class PlayerManager: ObservableObject {
 
     /// Piste audio demandée pour la session en cours (nil = choix serveur)
     @Published private(set) var currentAudioStreamIndex: Int?
+    /// Vidéo envoyée en AirPlay (iOS) : sous-titres choisis dans le menu xfinn
+    @Published private(set) var isExternalPlaybackActive = false
+    /// Flux courant demandé avec les sous-titres incrustés
+    private var streamBurnsInSubtitles = false
+
+    /// Choix fait dans le menu de sous-titres natif d'AVPlayer, que l'app ne
+    /// suit pas : relevé avant de relancer le flux (piste audio, qualité,
+    /// relance), réappliqué au nouveau flux — sinon AVPlayer refait sa
+    /// sélection automatique (ex. VO anglaise : français complets réactivés
+    /// alors que l'utilisateur les avait coupés)
+    private enum NativeSubtitleChoice: Equatable {
+        case off
+        case option(title: String)
+    }
+    private var pendingNativeSubtitleChoice: NativeSubtitleChoice?
 
     // MARK: - Public Properties
 
@@ -149,6 +164,9 @@ final class PlayerManager: ObservableObject {
 
     private var playbackObserver: Any?
     private var timeControlStatusObserver: NSKeyValueObservation?
+    #if os(iOS)
+    private var externalPlaybackObserver: NSKeyValueObservation?
+    #endif
     private var didPlayToEndObserver: NSObjectProtocol?
     private var failedToPlayToEndObserver: NSObjectProtocol?
     private var accessLogObserver: NSObjectProtocol?
@@ -161,7 +179,7 @@ final class PlayerManager: ObservableObject {
     private var hasConfiguredSubtitleCallback = false
     private var isStoppingPlayback = false
     private var hasNotifiedPlaybackFinished = false
-    private var currentQuality: StreamQuality = .auto
+    private(set) var currentQuality: StreamQuality = .auto
     @Published private(set) var playbackMode: PlaybackMode = .video
 
     // Repli audio. Un remux EAC3/AC3 → HLS fMP4 produit un segment d'init
@@ -177,6 +195,11 @@ final class PlayerManager: ObservableObject {
     // pas (MP4 fragmenté non détecté par la sonde de PlaybackService, codec
     // refusé au décodage) : on relance UNE fois en demandant un flux HLS.
     private var isDirectPlayDisabled = false
+
+    // Repli variante réencodée. Pour une source HDR copiée, le proxy retire la
+    // variante H.264 SDR que Jellyfin réencode (4K à ~8 i/s) ; une TV réglée
+    // en SDR refuse alors le flux : on relance UNE fois avec le master complet.
+    private var isReencodedFallbackKept = false
 
     /// Incrémenté à chaque lancement et à chaque arrêt : un startPlayback
     /// encore en attente (réseau, chargement de l'asset) dont la génération
@@ -371,6 +394,7 @@ final class PlayerManager: ObservableObject {
         playlist: [MediaItem]? = nil,
         playlistIndex: Int = 0
     ) async {
+        pendingNativeSubtitleChoice = nil
         await startPlayback(
             item: item,
             quality: quality,
@@ -382,7 +406,8 @@ final class PlayerManager: ObservableObject {
             playlist: playlist,
             playlistIndex: playlistIndex,
             audioFallback: false,
-            directPlayDisabled: false
+            directPlayDisabled: false,
+            reencodedFallbackKept: false
         )
     }
 
@@ -400,7 +425,8 @@ final class PlayerManager: ObservableObject {
         playlist: [MediaItem]?,
         playlistIndex: Int,
         audioFallback: Bool,
-        directPlayDisabled: Bool
+        directPlayDisabled: Bool,
+        reencodedFallbackKept: Bool
     ) async {
         playbackGeneration += 1
         let generation = playbackGeneration
@@ -422,6 +448,7 @@ final class PlayerManager: ObservableObject {
         self.hasNotifiedPlaybackFinished = false
         self.isAudioFallbackActive = audioFallback
         self.isDirectPlayDisabled = directPlayDisabled
+        self.isReencodedFallbackKept = reencodedFallbackKept
         self.hasReportedPlaybackStart = false
         self.didReachReadyToPlay = false
         self.pendingResumePosition = resumePosition
@@ -471,9 +498,16 @@ final class PlayerManager: ObservableObject {
                 audioStreamIndex: audioIndex,
                 subtitleStreamIndex: subtitleIndex,
                 forceAudioTranscode: audioFallback,
-                allowDirectPlay: !directPlayDisabled && !Self.isAirPlayOutput
+                allowDirectPlay: !directPlayDisabled,
+                burnInSubtitles: Self.burnsInSubtitles,
+                // AirPlay (HomePod sur tvOS, Apple TV depuis iOS) : jamais le
+                // fichier entier, qui perd le son ; remux et transcodage HLS
+                // restent permis (interdire la lecture directe d'emblée faisait
+                // aussi perdre à Jellyfin le direct stream → réencodage complet)
+                requireStream: Self.isAirPlayOutput
             )
             guard generation == playbackGeneration else { return }
+            self.streamBurnsInSubtitles = Self.burnsInSubtitles
 
             self.playSessionId = playbackResult.playSessionId
             self.isTranscoding = playbackResult.isTranscoding
@@ -485,6 +519,17 @@ final class PlayerManager: ObservableObject {
                 playbackResult: playbackResult,
                 requestedBitrate: quality.maxBitrate
             )
+
+            #if os(tvOS)
+            // Flux HLS d'une source HDR : écran en HDR avant le choix de la
+            // variante (voir HDRDisplaySwitch)
+            if playbackMode == .video, playbackResult.isTranscoding,
+               let video = playbackResult.mediaSource.mediaStreams?.first(where: { $0.type == "Video" }),
+               let criteria = HDRDisplaySwitch.criteria(for: video) {
+                await HDRDisplaySwitch.apply(criteria)
+                guard generation == playbackGeneration else { return }
+            }
+            #endif
 
             // Créer et configurer le player
             await setupPlayer(
@@ -573,6 +618,7 @@ final class PlayerManager: ObservableObject {
         let quality = currentQuality
 
         Task {
+            pendingNativeSubtitleChoice = await captureNativeSubtitleChoice()
             await startPlayback(
                 item: item,
                 quality: quality,
@@ -602,6 +648,7 @@ final class PlayerManager: ObservableObject {
         let audio = currentAudioStreamIndex
 
         Task {
+            pendingNativeSubtitleChoice = await captureNativeSubtitleChoice()
             await startPlayback(
                 item: item,
                 quality: quality,
@@ -612,6 +659,127 @@ final class PlayerManager: ObservableObject {
                 mode: .video
             )
         }
+    }
+
+    /// Relance le flux en cours à la position courante, avec les mêmes piste
+    /// audio, qualité et sous-titres (lecteur bloqué en chargement)
+    func retryCurrentPlayback() {
+        guard playbackMode == .video,
+              let item = currentItem,
+              let service = jellyfinService else { return }
+
+        let position = currentTime
+        let subtitle = selectedSubtitleIndex
+        let audio = currentAudioStreamIndex
+        let quality = currentQuality
+
+        Task {
+            pendingNativeSubtitleChoice = await captureNativeSubtitleChoice()
+            await startPlayback(
+                item: item,
+                quality: quality,
+                resumePosition: position > 5 ? position : nil,
+                subtitleIndex: subtitle,
+                audioIndex: audio,
+                jellyfinService: service,
+                mode: .video
+            )
+        }
+    }
+
+    /// AirPlay depuis iOS : sous-titres incrustés par Jellyfin. Ses VTT HLS
+    /// arrivent décalés de 10 s et le proxy qui les corrige (scheme custom)
+    /// est inutilisable par l'Apple TV. Sur tvOS, la sortie AirPlay est une
+    /// enceinte (HomePod) : la vidéo reste à l'écran, rien à incruster.
+    static var burnsInSubtitles: Bool {
+        #if os(iOS)
+        return isAirPlayOutput
+        #else
+        return false
+        #endif
+    }
+
+    /// Change de sous-titres en relançant le flux à la position courante
+    /// (sous-titres incrustés en AirPlay : pas de piste à activer côté lecteur)
+    func switchSubtitle(to index: Int?) {
+        guard playbackMode == .video,
+              index != selectedSubtitleIndex,
+              let item = currentItem,
+              let service = jellyfinService else { return }
+
+        selectedSubtitleIndex = index
+        let position = currentTime
+        let audio = currentAudioStreamIndex
+        let quality = currentQuality
+
+        Task {
+            await startPlayback(
+                item: item,
+                quality: quality,
+                resumePosition: position > 5 ? position : nil,
+                subtitleIndex: index,
+                audioIndex: audio,
+                jellyfinService: service,
+                mode: .video
+            )
+        }
+    }
+
+    #if DEBUG
+    /// QA : imite un choix dans le menu natif d'AVPlayer (langue, ou nil = désactivé)
+    func debugSelectNativeSubtitle(language: String?) async {
+        guard let playerItem = player?.currentItem,
+              let group = try? await playerItem.asset.loadMediaSelectionGroup(for: .legible) else { return }
+        let option = language.flatMap { wanted in
+            group.options.first {
+                ($0.extendedLanguageTag ?? $0.locale?.identifier ?? "").hasPrefix(wanted)
+                    && !$0.hasMediaCharacteristic(.containsOnlyForcedSubtitles)
+            }
+        }
+        playerItem.select(option, in: group)
+    }
+
+    /// QA : option de sous-titres affichée par le lecteur
+    func debugNativeSubtitleDescription() async -> String {
+        guard let playerItem = player?.currentItem,
+              let group = try? await playerItem.asset.loadMediaSelectionGroup(for: .legible) else { return "no group" }
+        let all = group.options.map { option in
+            let title = (option.commonMetadata.first { $0.commonKey == .commonKeyTitle }?.stringValue) ?? option.displayName
+            return "\(title)\(option.hasMediaCharacteristic(.containsOnlyForcedSubtitles) ? "[F]" : "")"
+        }
+        guard let option = playerItem.currentMediaSelection.selectedMediaOption(in: group) else { return "off  | \(all)" }
+        return "#\(group.options.firstIndex(of: option) ?? -1) | \(all)"
+    }
+    #endif
+
+    /// Piste de sous-titres (index Jellyfin) active dans le lecteur natif —
+    /// choisie par le menu d'Apple, que l'app ne suit pas. nil si aucune ou
+    /// si seuls les sous-titres forcés sont affichés.
+    private func nativeSubtitleStreamIndex() async -> Int? {
+        guard let playerItem = player?.currentItem,
+              let group = try? await playerItem.asset.loadMediaSelectionGroup(for: .legible),
+              let option = playerItem.currentMediaSelection.selectedMediaOption(in: group),
+              !option.hasMediaCharacteristic(.containsOnlyForcedSubtitles),
+              let tag = option.extendedLanguageTag ?? option.locale?.identifier else { return nil }
+        let normalized = [MediaStream].normalizeLanguage(tag)
+        let candidates = subtitleStreams.filter {
+            [MediaStream].normalizeLanguage($0.language ?? "") == normalized
+        }
+        return (candidates.first { $0.isForced != true } ?? candidates.first)?.index
+    }
+
+    /// Sélection du menu natif, si l'app n'impose pas de piste
+    private func captureNativeSubtitleChoice() async -> NativeSubtitleChoice? {
+        guard selectedSubtitleIndex == nil, !streamBurnsInSubtitles,
+              let playerItem = player?.currentItem,
+              let group = try? await playerItem.asset.loadMediaSelectionGroup(for: .legible) else { return nil }
+        guard let option = playerItem.currentMediaSelection.selectedMediaOption(in: group) else { return .off }
+        return .option(title: Self.subtitleTitle(of: option))
+    }
+
+    /// Nom de la rendition (NAME du manifest, identique d'un flux à l'autre)
+    private static func subtitleTitle(of option: AVMediaSelectionOption) -> String {
+        option.commonMetadata.first { $0.commonKey == .commonKeyTitle }?.stringValue ?? option.displayName
     }
 
     /// Applique la sélection de sous-titres de l'app au groupe legible
@@ -625,6 +793,19 @@ final class PlayerManager: ObservableObject {
             return
         }
 
+        if selectedSubtitleIndex == nil, let choice = pendingNativeSubtitleChoice {
+            pendingNativeSubtitleChoice = nil
+            switch choice {
+            case .off:
+                playerItem.select(nil, in: group)
+            case .option(let title):
+                if let option = group.options.first(where: { Self.subtitleTitle(of: $0) == title }) {
+                    playerItem.select(option, in: group)
+                }
+            }
+            return
+        }
+
         guard let selectedIndex = selectedSubtitleIndex,
               let stream = subtitleStreams.first(where: { $0.index == selectedIndex }) else {
             // Pas de choix explicite dans l'app : laisser AVPlayer et les
@@ -632,15 +813,22 @@ final class PlayerManager: ObservableObject {
             return
         }
 
-        // Piste correspondant à la langue choisie (fre/fra normalisés) ;
-        // à défaut, la première piste du groupe
+        // Piste correspondant à la langue choisie (fre/fra normalisés), en
+        // distinguant les sous-titres forcés : un fichier peut avoir une piste
+        // « Forced » et une complète dans la même langue (souvent la forcée
+        // marquée par défaut, presque vide sur une VF) ; à défaut, la première
+        // piste du groupe
         let option: AVMediaSelectionOption?
         if let language = stream.language {
             let normalized = [MediaStream].normalizeLanguage(language)
-            option = group.options.first { candidate in
+            let sameLanguage = group.options.filter { candidate in
                 guard let tag = candidate.extendedLanguageTag ?? candidate.locale?.identifier else { return false }
                 return [MediaStream].normalizeLanguage(tag) == normalized
-            } ?? group.options.first
+            }
+            let wantsForced = stream.isForced == true
+            option = sameLanguage.first {
+                $0.hasMediaCharacteristic(.containsOnlyForcedSubtitles) == wantsForced
+            } ?? sameLanguage.first ?? group.options.first
         } else {
             option = group.options.first
         }
@@ -740,7 +928,6 @@ final class PlayerManager: ObservableObject {
         // dont le segment court jusqu'à la fin du fichier et n'est jamais quitté.
         segmentDisplayTimer?.cancel()
         segmentDisplayTimer = nil
-        subtitleResourceLoader = nil
 
         guard let segment else { return }
         segmentDisplayTimer = Task { [weak self] in
@@ -798,6 +985,9 @@ final class PlayerManager: ObservableObject {
 
         // Nettoyer
         await cleanup()
+        #if os(tvOS)
+        HDRDisplaySwitch.reset()
+        #endif
 
         // État local finalisé avant l'aller-retour réseau : une nouvelle
         // lecture lancée pendant le rapport ne doit pas être écrasée par la
@@ -872,6 +1062,16 @@ final class PlayerManager: ObservableObject {
 
     /// Nettoie les ressources sans reporter l'arrêt
     func cleanup() async {
+        // Flux transcodé abandonné (fermeture, relance pour une autre piste,
+        // qualité ou après échec) : le serveur doit arrêter son ffmpeg et
+        // supprimer les segments, sinon ils restent dans son cache
+        if isTranscoding, !playSessionId.isEmpty, let service = jellyfinService {
+            let sessionId = playSessionId
+            Task {
+                try? await service.stopActiveEncodings(playSessionId: sessionId)
+            }
+        }
+
         // Retirer l'observer de progression
         if let observer = playbackObserver, let player = player {
             player.removeTimeObserver(observer)
@@ -916,6 +1116,10 @@ final class PlayerManager: ObservableObject {
         bufferUpdateTimer = nil
         timeControlStatusObserver?.invalidate()
         timeControlStatusObserver = nil
+        #if os(iOS)
+        externalPlaybackObserver?.invalidate()
+        externalPlaybackObserver = nil
+        #endif
 
         // Retirer les handlers du Control Center (singleton global partagé
         // entre toutes les instances de PlayerManager)
@@ -956,10 +1160,17 @@ final class PlayerManager: ObservableObject {
     ) async {
         // Créer l'asset — pour un master de transcodage, passer par le proxy
         // qui corrige la carte de temps des sous-titres VTT (bug Jellyfin :
-        // X-TIMESTAMP-MAP à 10 s alors que les segments fMP4 démarrent à 0)
+        // X-TIMESTAMP-MAP à 10 s alors que les segments fMP4 démarrent à 0).
+        // Pas en AirPlay vidéo depuis iOS : l'Apple TV ne peut pas lire un scheme
+        // custom (sous-titres incrustés à la place). Sur tvOS, l'AirPlay n'est
+        // que l'audio (HomePod) : le proxy reste nécessaire
         let asset: AVURLAsset
-        if playbackMode == .video, let proxied = HLSSubtitleResourceLoader.proxyURL(for: url) {
-            let loader = HLSSubtitleResourceLoader(mediaDuration: item.duration ?? 0)
+        if playbackMode == .video, !Self.burnsInSubtitles,
+           let proxied = HLSSubtitleResourceLoader.proxyURL(for: url) {
+            let loader = HLSSubtitleResourceLoader(
+                mediaDuration: item.duration ?? 0,
+                dropsReencodedFallback: !isReencodedFallbackKept
+            )
             asset = AVURLAsset(url: proxied)
             asset.resourceLoader.setDelegate(loader, queue: loader.queue)
             self.subtitleResourceLoader = loader
@@ -1038,6 +1249,36 @@ final class PlayerManager: ObservableObject {
                     infoPanels.append(TechnicalInfoViewController(info: technicalInfo))
                 }
                 controller.customInfoViewControllers = infoPanels
+                #else
+                // PiP automatique en quittant l'app pendant la lecture, sauf en
+                // AirPlay : le PiP ramènerait la vidéo sur l'iPhone et couperait
+                // l'Apple TV (en transcodage, Jellyfin ne sert plus l'ancien flux)
+                externalPlaybackObserver = newPlayer.observe(\.isExternalPlaybackActive, options: [.initial, .new]) { [weak self, weak controller] player, _ in
+                    let external = player.isExternalPlaybackActive
+                    // En AirPlay, la lecture continue quand l'app quitte l'écran
+                    // (verrouillage, arrière-plan) : nécessite aussi le mode audio
+                    // d'arrière-plan (UIBackgroundModes dans Config/Info.plist)
+                    player.audiovisualBackgroundPlaybackPolicy = external ? .continuesIfPossible : .automatic
+                    Task { @MainActor in
+                        self?.isExternalPlaybackActive = external
+                        // Pas d'image dans l'image pendant l'AirPlay : la vidéo est sur la TV
+                        controller?.allowsPictureInPicturePlayback = !external
+                        controller?.canStartPictureInPictureAutomaticallyFromInline = !external
+                        // AirPlay activé en cours de lecture d'un flux passé par
+                        // le proxy de sous-titres : relancer en URL directe
+                        // (une seule fois : la relance se fait sans proxy)
+                        // (et sous-titres choisis : relance pour les incruster ; ceux
+                        // activés dans le menu natif d'Apple sont repris)
+                        guard external, let self, !self.streamBurnsInSubtitles else { return }
+                        if self.selectedSubtitleIndex == nil,
+                           let nativeIndex = await self.nativeSubtitleStreamIndex() {
+                            self.selectedSubtitleIndex = nativeIndex
+                        }
+                        if self.subtitleResourceLoader != nil || self.selectedSubtitleIndex != nil {
+                            self.retryCurrentPlayback()
+                        }
+                    }
+                }
                 #endif
 
                 self.playerViewController = controller
@@ -1132,6 +1373,13 @@ final class PlayerManager: ObservableObject {
         playbackMode == .video && isTranscoding && !isAudioFallbackActive && !didReachReadyToPlay
     }
 
+    /// Relance avec la variante réencodée possible : le proxy l'avait retirée
+    /// et le flux échoue avant la première image
+    private var canRetryWithReencodedFallback: Bool {
+        playbackMode == .video && !isReencodedFallbackKept && !didReachReadyToPlay
+            && subtitleResourceLoader?.didDropReencodedFallback == true
+    }
+
     /// Relance en HLS possible : vidéo servie en Direct Play, pas déjà en
     /// repli. Pas de condition sur readyToPlay : un codec refusé au décodage
     /// échoue après readyToPlay, et la relance reprend à la position courante
@@ -1166,7 +1414,32 @@ final class PlayerManager: ObservableObject {
                 playlist: nil,
                 playlistIndex: 0,
                 audioFallback: isAudioFallbackActive,
-                directPlayDisabled: true
+                directPlayDisabled: true,
+                reencodedFallbackKept: isReencodedFallbackKept
+            )
+            return
+        }
+
+        if canRetryWithReencodedFallback {
+            #if DEBUG
+            print("[PlayerManager] Copied HDR variant refused (\(message)) — retrying with Jellyfin's re-encoded variant")
+            #endif
+
+            await reportPlaybackStoppedIfNeeded(positionTicks: 0)
+
+            await startPlayback(
+                item: item,
+                quality: currentQuality,
+                resumePosition: pendingResumePosition,
+                subtitleIndex: selectedSubtitleIndex,
+                audioIndex: currentAudioStreamIndex,
+                jellyfinService: service,
+                mode: playbackMode,
+                playlist: nil,
+                playlistIndex: 0,
+                audioFallback: isAudioFallbackActive,
+                directPlayDisabled: isDirectPlayDisabled,
+                reencodedFallbackKept: true
             )
             return
         }
@@ -1194,7 +1467,8 @@ final class PlayerManager: ObservableObject {
             playlist: nil,
             playlistIndex: 0,
             audioFallback: true,
-            directPlayDisabled: isDirectPlayDisabled
+            directPlayDisabled: isDirectPlayDisabled,
+            reencodedFallbackKept: isReencodedFallbackKept
         )
     }
 
@@ -1214,6 +1488,9 @@ final class PlayerManager: ObservableObject {
                         await self.applyAudioSelection(to: playerItem)
                         await self.applySubtitleSelection(to: playerItem)
                     }
+                    #if DEBUG
+                    DebugLaunch.scheduleSeeks(on: self)
+                    #endif
                 case .failed:
                     guard self.isCurrent(playerItem) else { return }
                     let message = playerItem.error?.localizedDescription ?? "error.generic".localized

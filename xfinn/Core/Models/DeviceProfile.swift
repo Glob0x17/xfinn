@@ -185,12 +185,21 @@ struct DeviceProfile: Codable {
     }
 
     /// Sélectionne automatiquement le bon profil selon la plateforme
-    static func currentProfile(maxBitrate: Int? = nil, forceAudioTranscode: Bool = false) -> DeviceProfile {
+    /// - Parameter burnInSubtitles: tous les sous-titres en "Encode" (incrustés
+    ///   par Jellyfin dans la vidéo) — AirPlay depuis iOS, où les VTT de
+    ///   Jellyfin arrivent décalés de 10 s sans pouvoir être corrigés
+    static func currentProfile(maxBitrate: Int? = nil, forceAudioTranscode: Bool = false, burnInSubtitles: Bool = false) -> DeviceProfile {
         #if os(tvOS)
-        return tvOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
+        var profile = tvOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
         #else
-        return iOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
+        var profile = iOSProfile(maxBitrate: maxBitrate, forceAudioTranscode: forceAudioTranscode)
         #endif
+        if burnInSubtitles {
+            profile.subtitleProfiles = profile.subtitleProfiles?.map {
+                SubtitleProfile(format: $0.format, method: "Encode")
+            }
+        }
+        return profile
     }
 
     /// Construit les profils Direct Play selon les capacités
@@ -454,6 +463,20 @@ struct MediaSourceInfo: Codable {
     }
 }
 
+extension MediaSourceInfo {
+    /// Sous-titre que Jellyfin active de lui-même (préférence du compte,
+    /// piste forcée ou par défaut) quand le client n'en demande aucun, s'il
+    /// est en image (PGS, VobSub, DVB) : il ne peut qu'être incrusté, ce qui
+    /// réencode toute la vidéo (4K HDR → H.264 à quelques i/s).
+    /// Fonction pure, testée dans xfinnTests
+    var defaultSubtitleIsImageBased: Bool {
+        guard let index = defaultSubtitleStreamIndex, index >= 0,
+              let codec = mediaStreams?.first(where: { $0.index == index && $0.type == "Subtitle" })?.codec?.lowercased()
+        else { return false }
+        return ["pgssub", "pgs", "hdmv_pgs_subtitle", "dvdsub", "vobsub", "dvd_subtitle", "dvbsub", "dvb_subtitle", "xsub"].contains(codec)
+    }
+}
+
 /// Informations sur un flux média (audio, vidéo, sous-titres)
 struct MediaStreamInfo: Codable {
     var type: String?
@@ -464,6 +487,11 @@ struct MediaStreamInfo: Codable {
     var isDefault: Bool?
     var isForced: Bool?
     var isExternal: Bool?
+    var videoRangeType: String?
+    var width: Int?
+    var height: Int?
+    var realFrameRate: Double?
+    var averageFrameRate: Double?
 
     enum CodingKeys: String, CodingKey {
         case type = "Type"
@@ -474,5 +502,10 @@ struct MediaStreamInfo: Codable {
         case isDefault = "IsDefault"
         case isForced = "IsForced"
         case isExternal = "IsExternal"
+        case videoRangeType = "VideoRangeType"
+        case width = "Width"
+        case height = "Height"
+        case realFrameRate = "RealFrameRate"
+        case averageFrameRate = "AverageFrameRate"
     }
 }

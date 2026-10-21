@@ -38,6 +38,8 @@
 "login.discovered_servers" = "Discovered Servers";
 "login.recent_servers" = "Recent Servers";
 "login.searching_servers" = "Searching for servers on the network...";
+"login.servers" = "Servers";
+"login.recent_badge" = "Recent";
 "login.or_manual" = "or enter manually";
 
 // MARK: - Home
@@ -66,6 +68,7 @@
 "media.now_playing" = "Now Playing";
 "media.resume_at_time" = "Resume at %@";
 "media.rewatch" = "Rewatch";
+"media.resume" = "Resume";
 "media.play" = "Play";
 "media.playback_error" = "Playback error";
 "media.series" = "Series";
@@ -205,6 +208,9 @@
 "media_type.series" = "Series";
 "media_type.episode" = "Episode";
 "media_type.season" = "Season";
+"media_type.music_album" = "Album";
+"media_type.music_artist" = "Artist";
+"media_type.audio" = "Track";
 
 // MARK: - Subtitles
 "subtitles.none" = "None";
@@ -278,6 +284,9 @@
 "player.skip_intro" = "Skip intro";
 "player.skip_outro" = "Skip credits";
 "player.skip_recap" = "Skip recap";
+"player.stalled_title" = "Playback is stuck";
+"player.stalled_message" = "The stream is no longer loading. You can restart playback from here, keep waiting or close the player.";
+"player.keep_waiting" = "Keep Waiting";
 "settings.playback" = "Playback";
 "settings.auto_skip_intro" = "Automatically skip intros";
 "settings.auto_skip_intro_footer" = "Requires media segments detected by your server (e.g. the Intro Skipper plugin). Credits and recaps always show a manual skip button.";

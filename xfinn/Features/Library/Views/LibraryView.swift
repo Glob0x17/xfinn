@@ -140,10 +140,7 @@ struct LibraryView: View {
         GridItem(.flexible(minimum: 400, maximum: 600), spacing: AppTheme.sp(40))
     ]
     #else
-    private static let gridColumns = [
-        GridItem(.flexible(minimum: 140), spacing: 16),
-        GridItem(.flexible(minimum: 140), spacing: 16)
-    ]
+    private static let gridColumns = AppTheme.adaptiveColumns(phone: 140, pad: 300, spacing: 16)
     #endif
 
     private var librariesGrid: some View {

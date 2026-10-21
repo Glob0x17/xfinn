@@ -41,6 +41,9 @@ struct HomeView: View {
     @Namespace private var focusNamespace
     @FocusState private var focus: HomeFocus?
     @State private var showLogoutConfirmation = false
+    #if os(iOS)
+    @State private var showSettings = false
+    #endif
 
     // Particules déterministes pour éviter les variations visuelles entre affichages
     private static let particlePreset: [ParticleData] = (0..<8).map { index in
@@ -178,22 +181,38 @@ struct HomeView: View {
                 let toolbarLabelSize: CGFloat = 13
                 #endif
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        navigationCoordinator.navigateToMusicLibrary()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "music.note")
-                                .font(.system(size: toolbarIconSize))
-                            Text("music.library_title".localized)
-                                .font(.system(size: toolbarLabelSize, weight: .semibold))
+                    if viewModel.hasMusicLibrary {
+                        Button {
+                            navigationCoordinator.navigateToMusicLibrary()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: toolbarIconSize))
+                                Text("music.library_title".localized)
+                                    .font(.system(size: toolbarLabelSize, weight: .semibold))
+                            }
+                            .foregroundColor(.appSecondary)
                         }
-                        .foregroundColor(.appSecondary)
+                        #if os(tvOS)
+                        .focusable(false)
+                        #endif
                     }
-                    #if os(tvOS)
-                    .focusable(false)
-                    #endif
                 }
 
+                #if os(iOS)
+                // iOS : réglages (la déconnexion y est, avec confirmation) plutôt qu'un bouton
+                // « Déconnexion » exposé en haut de l'accueil
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: toolbarIconSize))
+                            .foregroundColor(.appTextSecondary)
+                    }
+                    .accessibilityLabel("settings.title".localized)
+                }
+                #else
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showLogoutConfirmation = true
@@ -206,11 +225,15 @@ struct HomeView: View {
                         }
                         .foregroundColor(.appError)
                     }
-                    #if os(tvOS)
                     .focusable(false)
-                    #endif
                 }
+                #endif
             }
+            #if os(iOS)
+            .sheet(isPresented: $showSettings) {
+                SettingsView(jellyfinService: jellyfinService)
+            }
+            #endif
             .alert("settings.sign_out_confirm".localized, isPresented: $showLogoutConfirmation) {
                 Button("common.cancel".localized, role: .cancel) {}
                 Button("settings.sign_out".localized, role: .destructive) {
@@ -370,10 +393,15 @@ struct HomeView: View {
         HStack(spacing: 8) {
             Image(systemName: systemName)
                 .font(.system(size: Self.headerIconFontSize, weight: .semibold))
-            Text(title)
-                .font(.system(size: Self.headerLabelFontSize, weight: .semibold))
-                .lineLimit(1)
+            // iPhone : icône seule, le libellé ne tient pas à côté du titre
+            if UIDevice.current.userInterfaceIdiom != .phone {
+                Text(title)
+                    .font(.system(size: Self.headerLabelFontSize, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
         }
+        .accessibilityLabel(title)
         .foregroundStyle(Color.appTextPrimary)
         .padding(.horizontal, Self.headerPillHPadding)
         .frame(height: Self.headerIconSize)
@@ -480,7 +508,7 @@ struct HomeView: View {
                     if let rating = item.communityRating {
                         heroChip(systemName: "star.fill", text: String(format: "%.1f", rating))
                     }
-                    heroChip(systemName: "sparkles.tv", text: item.type)
+                    heroChip(systemName: "sparkles.tv", text: item.localizedTypeName)
                 }
 
                 if let overview = item.overview, !overview.isEmpty {

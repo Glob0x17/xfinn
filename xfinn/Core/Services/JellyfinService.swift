@@ -317,9 +317,9 @@ class JellyfinService: ObservableObject {
 
     /// Obtient les informations de lecture via l'API PlaybackInfo avec DeviceProfile
     /// C'est la méthode recommandée car elle gère les sous-titres nativement via HLS
-    func getPlaybackInfo(itemId: String, quality: StreamQuality = .auto, audioStreamIndex: Int? = nil, subtitleStreamIndex: Int? = nil, forceAudioTranscode: Bool = false, allowDirectPlay: Bool = true) async throws -> PlaybackResult {
+    func getPlaybackInfo(itemId: String, quality: StreamQuality = .auto, audioStreamIndex: Int? = nil, subtitleStreamIndex: Int? = nil, forceAudioTranscode: Bool = false, allowDirectPlay: Bool = true, burnInSubtitles: Bool = false, requireStream: Bool = false) async throws -> PlaybackResult {
         try await withAuthErrorHandling {
-            try await playbackService.getPlaybackInfo(itemId: itemId, quality: quality, audioStreamIndex: audioStreamIndex, subtitleStreamIndex: subtitleStreamIndex, forceAudioTranscode: forceAudioTranscode, allowDirectPlay: allowDirectPlay)
+            try await playbackService.getPlaybackInfo(itemId: itemId, quality: quality, audioStreamIndex: audioStreamIndex, subtitleStreamIndex: subtitleStreamIndex, forceAudioTranscode: forceAudioTranscode, allowDirectPlay: allowDirectPlay, burnInSubtitles: burnInSubtitles, requireStream: requireStream)
         }
     }
 
@@ -356,6 +356,12 @@ class JellyfinService: ObservableObject {
     func reportPlaybackStopped(itemId: String, positionTicks: Int64, playSessionId: String, playMethod: String = "DirectStream") async throws {
         try await withAuthErrorHandling {
             try await playbackService.reportPlaybackStopped(itemId: itemId, positionTicks: positionTicks, playSessionId: playSessionId, playMethod: playMethod)
+        }
+    }
+
+    func stopActiveEncodings(playSessionId: String) async throws {
+        try await withAuthErrorHandling {
+            try await playbackService.stopActiveEncodings(playSessionId: playSessionId)
         }
     }
 }

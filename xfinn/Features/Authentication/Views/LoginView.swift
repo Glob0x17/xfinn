@@ -48,9 +48,14 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            // Fond avec gradient animé et particules
+            // Fond avec gradient animé et particules. Lui seul ignore les zones
+            // réservées : le formulaire, lui, doit remonter au-dessus du clavier
             backgroundView
-            
+                .ignoresSafeArea()
+                #if os(iOS)
+                .onTapGesture { dismissKeyboard() }
+                #endif
+
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 0) {
@@ -70,10 +75,16 @@ struct LoginView: View {
                     }
                     .frame(width: geometry.size.width)
                     .frame(minHeight: geometry.size.height, alignment: .center)
+                    #if os(iOS)
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismissKeyboard() }
+                    #endif
                 }
+                #if os(iOS)
+                .scrollDismissesKeyboard(.interactively)
+                #endif
             }
         }
-        .ignoresSafeArea()
         .onAppear {
             viewModel.startLogoAnimation()
             viewModel.startDiscovery()
@@ -84,6 +95,12 @@ struct LoginView: View {
         }
     }
     
+    #if os(iOS)
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    #endif
+
     // MARK: - Background
 
     private var backgroundView: some View {
@@ -134,6 +151,12 @@ struct LoginView: View {
     private static let cardMaxWidth: CGFloat = 900
     private static let cardPadding: CGFloat = 50
     private static let qcCodeSize: CGFloat = 72
+    private static let listTitleSize: CGFloat = 22
+    private static let hintSize: CGFloat = 18
+    private static let separatorSize: CGFloat = 16
+    private static let errorIconSize: CGFloat = 28
+    private static let errorTextSize: CGFloat = 20
+    private static let errorPad: CGFloat = 25
     #else
     private static let logoIconSize: CGFloat = 40
     private static let logoGlowSize: CGFloat = 80
@@ -148,6 +171,12 @@ struct LoginView: View {
     private static let cardMaxWidth: CGFloat = 500
     private static let cardPadding: CGFloat = 24
     private static let qcCodeSize: CGFloat = 40
+    private static let listTitleSize: CGFloat = 17
+    private static let hintSize: CGFloat = 15
+    private static let separatorSize: CGFloat = 13
+    private static let errorIconSize: CGFloat = 20
+    private static let errorTextSize: CGFloat = 15
+    private static let errorPad: CGFloat = 14
     #endif
 
     private var logoSection: some View {
@@ -245,14 +274,21 @@ struct LoginView: View {
                     .foregroundStyle(Color.appTextSecondary)
             }
 
-            // Section serveurs découverts
-            if !viewModel.discoveredServers.isEmpty || viewModel.isDiscovering {
-                discoveredServersSection
-            }
+            if Self.usesServerList {
+                // iPhone : une seule liste verticale, récents puis découverts
+                if !viewModel.mergedServers.isEmpty || viewModel.isDiscovering {
+                    serverListSection
+                }
+            } else {
+                // Section serveurs découverts
+                if !viewModel.discoveredServers.isEmpty || viewModel.isDiscovering {
+                    discoveredServersSection
+                }
 
-            // Section serveurs récents
-            if !viewModel.recentServers.isEmpty {
-                recentServersSection
+                // Section serveurs récents
+                if !viewModel.recentServers.isEmpty {
+                    recentServersSection
+                }
             }
 
             // Séparateur si on a des serveurs
@@ -262,7 +298,9 @@ struct LoginView: View {
                         .fill(AppTheme.glassStroke)
                         .frame(height: 1)
                     Text("login.or_manual".localized)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: Self.separatorSize, weight: .medium))
+                        .lineLimit(1)
+                        .fixedSize()
                         .foregroundStyle(Color.appTextTertiary)
                     Rectangle()
                         .fill(AppTheme.glassStroke)
@@ -311,6 +349,8 @@ struct LoginView: View {
                             .font(.system(size: Self.btnIconSize))
                         Text("common.continue".localized)
                             .font(.system(size: Self.btnTextSize, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                 }
                 .foregroundColor(.white)
@@ -331,7 +371,8 @@ struct LoginView: View {
                 Image(systemName: "wifi")
                     .foregroundStyle(AppTheme.accent)
                 Text("login.discovered_servers".localized)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: Self.listTitleSize, weight: .semibold))
+                    .lineLimit(1)
                     .foregroundStyle(Color.appTextPrimary)
 
                 if viewModel.isDiscovering {
@@ -345,7 +386,7 @@ struct LoginView: View {
 
             if viewModel.discoveredServers.isEmpty {
                 Text("login.searching_servers".localized)
-                    .font(.system(size: 18))
+                    .font(.system(size: Self.hintSize))
                     .foregroundStyle(Color.appTextTertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
@@ -366,6 +407,111 @@ struct LoginView: View {
         }
     }
 
+    // MARK: - Server List (iPhone)
+
+    /// Les cartes horizontales (pensées pour la télécommande) sont coupées sur
+    /// la largeur d'un iPhone : liste verticale façon Réglages à la place
+    private static var usesServerList: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
+    private var serverListSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("login.servers".localized)
+                    .font(.system(size: Self.listTitleSize, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(Color.appTextPrimary)
+                if viewModel.isDiscovering {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .padding(.leading, 5)
+                }
+                Spacer()
+            }
+
+            let servers = viewModel.mergedServers
+            if servers.isEmpty {
+                Text("login.searching_servers".localized)
+                    .font(.system(size: Self.hintSize))
+                    .foregroundStyle(Color.appTextTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(servers.enumerated()), id: \.element.id) { index, server in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(AppTheme.glassStroke)
+                                .frame(height: 1)
+                                .padding(.leading, 48)
+                        }
+                        serverRow(server)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(AppTheme.glassBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppTheme.glassStroke, lineWidth: 1.5)
+                        )
+                )
+            }
+        }
+    }
+
+    private func serverRow(_ server: ServerItem) -> some View {
+        let isRecent = viewModel.recentServers.contains { $0.id == server.id }
+        return Button {
+            viewModel.selectServer(server)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isRecent ? "clock.arrow.circlepath" : "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 18))
+                    .foregroundStyle(isRecent ? AppTheme.secondary : AppTheme.accent)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(server.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if server.isSecure {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.green)
+                        }
+                        Text(server.displayURL)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if isRecent {
+                            Text("· " + "login.recent_badge".localized)
+                                .fixedSize()
+                        }
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.appTextSecondary)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appTextTertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Recent Servers Section
 
     private var recentServersSection: some View {
@@ -374,7 +520,8 @@ struct LoginView: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(AppTheme.secondary)
                 Text("login.recent_servers".localized)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: Self.listTitleSize, weight: .semibold))
+                    .lineLimit(1)
                     .foregroundStyle(Color.appTextPrimary)
 
                 Spacer()
@@ -438,6 +585,7 @@ struct LoginView: View {
                     )
                     .submitLabel(.next)
                     .focused($authFocusedField, equals: .username)
+                    .onSubmit { authFocusedField = .password }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -470,14 +618,22 @@ struct LoginView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.left")
                             .font(.system(size: Self.btnIconSize * 0.85))
+                        #if os(tvOS)
                         Text("common.back".localized)
                             .font(.system(size: Self.btnTextSize * 0.85, weight: .medium))
+                        #endif
                     }
                     .foregroundColor(.white)
+                    #if os(tvOS)
                     .frame(maxWidth: .infinity)
+                    #endif
                 }
                 .buttonStyle(GlassButtonStyle(isProminent: false))
                 .glassButton(prominent: false)
+                #if os(iOS)
+                // Sur iPhone, la flèche seule : le bouton Se connecter garde la place
+                .accessibilityLabel("common.back".localized)
+                #endif
 
                 Button {
                     Task { await viewModel.authenticate() }
@@ -492,6 +648,8 @@ struct LoginView: View {
                                 .font(.system(size: Self.btnIconSize))
                             Text("login.sign_in".localized)
                                 .font(.system(size: Self.btnTextSize, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                     }
                     .foregroundColor(.white)
@@ -514,6 +672,8 @@ struct LoginView: View {
                             .font(.system(size: Self.btnIconSize * 0.85))
                         Text("login.quick_connect".localized)
                             .font(.system(size: Self.btnTextSize * 0.85, weight: .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                     .foregroundColor(.appTextSecondary)
                     .frame(maxWidth: .infinity)
@@ -638,11 +798,11 @@ struct LoginView: View {
     private func errorBanner(message: String) -> some View {
         HStack(spacing: 15) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 28))
+                .font(.system(size: Self.errorIconSize))
                 .foregroundStyle(Color.appError)
 
             Text(message)
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: Self.errorTextSize, weight: .medium))
                 .foregroundStyle(Color.appTextPrimary)
                 .multilineTextAlignment(.leading)
 
@@ -652,11 +812,11 @@ struct LoginView: View {
                 viewModel.clearError()
             }) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: Self.errorIconSize * 0.85))
                     .foregroundStyle(Color.appTextSecondary)
             }
         }
-        .padding(25)
+        .padding(Self.errorPad)
         .background(
             RoundedRectangle(cornerRadius: 15)
                 .fill(AppTheme.error.opacity(0.2))
@@ -676,35 +836,49 @@ struct ServerCardButton: View {
     let server: ServerItem
     let action: () -> Void
 
+    #if os(tvOS)
+    private static let iconSize: CGFloat = 24
+    private static let nameSize: CGFloat = 20
+    private static let urlSize: CGFloat = 14
+    private static let pad: CGFloat = 20
+    private static let size = CGSize(width: 220, height: 120)
+    #else
+    private static let iconSize: CGFloat = 18
+    private static let nameSize: CGFloat = 16
+    private static let urlSize: CGFloat = 12
+    private static let pad: CGFloat = 14
+    private static let size = CGSize(width: 180, height: 96)
+    #endif
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: serverIcon)
-                        .font(.system(size: 24))
+                        .font(.system(size: Self.iconSize))
                         .foregroundStyle(iconColor)
 
                     Spacer()
 
                     if server.isSecure {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 14))
+                            .font(.system(size: Self.urlSize))
                             .foregroundStyle(Color.green)
                     }
                 }
 
                 Text(server.name)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: Self.nameSize, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary)
                     .lineLimit(1)
 
                 Text(server.displayURL)
-                    .font(.system(size: 14))
+                    .font(.system(size: Self.urlSize))
                     .foregroundStyle(Color.appTextSecondary)
                     .lineLimit(1)
             }
-            .padding(20)
-            .frame(width: 220, height: 120)
+            .padding(Self.pad)
+            .frame(width: Self.size.width, height: Self.size.height)
             .background(
                 RoundedRectangle(cornerRadius: 15)
                     .fill(AppTheme.glassBackground)

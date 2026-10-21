@@ -39,4 +39,29 @@ final class PlaybackInfoQueryTests: XCTestCase {
         )
         XCTAssertEqual(dict(items)["SubtitleStreamIndex"], "-1")
     }
+
+    // MARK: - Sous-titre image activé d'office par Jellyfin
+
+    private func source(defaultSubtitle: Int?, codec: String) -> MediaSourceInfo {
+        MediaSourceInfo(
+            mediaStreams: [
+                MediaStreamInfo(type: "Video", index: 0, codec: "hevc"),
+                MediaStreamInfo(type: "Subtitle", index: 4, codec: codec)
+            ],
+            defaultSubtitleStreamIndex: defaultSubtitle
+        )
+    }
+
+    func testDefaultPGSSubtitleIsImageBased() {
+        // Harry Potter : piste « Forced » PGS par défaut → incrustation
+        XCTAssertTrue(source(defaultSubtitle: 4, codec: "PGSSUB").defaultSubtitleIsImageBased)
+        XCTAssertTrue(source(defaultSubtitle: 4, codec: "dvdsub").defaultSubtitleIsImageBased)
+    }
+
+    func testTextOrNoDefaultSubtitleIsNotImageBased() {
+        // Sully : forcés en SRT, servis en rendition HLS
+        XCTAssertFalse(source(defaultSubtitle: 4, codec: "subrip").defaultSubtitleIsImageBased)
+        XCTAssertFalse(source(defaultSubtitle: -1, codec: "PGSSUB").defaultSubtitleIsImageBased)
+        XCTAssertFalse(source(defaultSubtitle: nil, codec: "PGSSUB").defaultSubtitleIsImageBased)
+    }
 }

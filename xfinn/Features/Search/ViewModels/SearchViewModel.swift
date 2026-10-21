@@ -45,6 +45,10 @@ enum SearchFilter: String, CaseIterable {
         }
     }
 
+    var isMusic: Bool {
+        self == .albums || self == .artists || self == .tracks
+    }
+
 }
 
 // MARK: - Search ViewModel
@@ -62,6 +66,10 @@ final class SearchViewModel: BaseViewModel {
 
     /// Filtre sélectionné
     @Published var selectedFilter: SearchFilter = .all
+
+    /// Filtres proposés : sans bibliothèque musicale, ni albums, ni artistes,
+    /// ni pistes (inconnu, échec réseau : tous)
+    @Published private(set) var availableFilters: [SearchFilter] = SearchFilter.allCases.filter { !$0.isMusic }
 
     /// Indique si une recherche est en cours
     @Published private(set) var isSearching = false
@@ -114,6 +122,11 @@ final class SearchViewModel: BaseViewModel {
     }
 
     // MARK: - Public Methods
+
+    func loadAvailableFilters() async {
+        let hasMusic = (try? await jellyfinService.getLibraries())?.contains { $0.collectionType == "music" } ?? true
+        availableFilters = SearchFilter.allCases.filter { hasMusic || !$0.isMusic }
+    }
 
     /// Effectue une recherche
     func performSearch() async {

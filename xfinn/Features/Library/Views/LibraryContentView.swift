@@ -134,7 +134,7 @@ struct LibraryContentView: View {
                 let gridSpacing: CGFloat = AppTheme.sp(40)
                 let gridHPad: CGFloat = AppTheme.sp(60)
                 #else
-                let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
+                let gridColumns = AppTheme.adaptiveColumns(phone: 105, pad: 170, spacing: 10)
                 let gridSpacing: CGFloat = 12
                 let gridHPad: CGFloat = 16
                 #endif

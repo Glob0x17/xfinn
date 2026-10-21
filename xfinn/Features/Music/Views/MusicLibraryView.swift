@@ -132,7 +132,7 @@ struct MusicLibraryView: View {
         GridItem(.flexible(minimum: 300, maximum: 400), spacing: AppTheme.sp(40))
     ]
     #else
-    private static let artistColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+    private static let artistColumns = AppTheme.adaptiveColumns(phone: 140, pad: 200, spacing: 16)
     #endif
 
     private var artistsGrid: some View {
@@ -282,10 +282,22 @@ struct ArtistCard: View {
                     }
                 }
             }
+            #if os(tvOS)
             .frame(width: AppTheme.dm(280), height: AppTheme.dm(280))
+            #else
+            // Cercle à la largeur de la colonne (taille fixe : débordait et
+            // collait les cartes entre elles sur iPad)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .clipShape(Circle())
+            .padding(.horizontal, 14)
+            #endif
             .overlay(
                 Circle()
                     .stroke(AppTheme.glassStroke, lineWidth: 2)
+                    #if !os(tvOS)
+                    .padding(.horizontal, 14)
+                    #endif
             )
             .padding(.top, 20)
 
@@ -311,7 +323,11 @@ struct ArtistCard: View {
             .padding(.horizontal, 15)
             .padding(.bottom, 20)
         }
+        #if os(tvOS)
         .frame(width: AppTheme.dm(320), height: AppTheme.dm(380))
+        #else
+        .frame(maxWidth: .infinity)
+        #endif
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(AppTheme.glassBackground)

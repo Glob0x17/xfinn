@@ -197,6 +197,23 @@ struct ArtistItem: Codable, Identifiable, Hashable {
     }
 }
 
+extension MediaItem {
+    /// Type affiché à l'utilisateur (« Film », « Série »…), le type Jellyfin
+    /// brut (« Movie ») pour un type inconnu
+    var localizedTypeName: String {
+        switch type {
+        case "Movie": return "media_type.movie".localized
+        case "Series": return "media_type.series".localized
+        case "Episode": return "media_type.episode".localized
+        case "Season": return "media_type.season".localized
+        case "MusicAlbum": return "media_type.music_album".localized
+        case "MusicArtist": return "media_type.music_artist".localized
+        case "Audio": return "media_type.audio".localized
+        default: return type
+        }
+    }
+}
+
 struct MediaItem: Codable, Identifiable, Hashable {
     let id: String
     let name: String

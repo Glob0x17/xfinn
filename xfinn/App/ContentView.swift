@@ -18,6 +18,9 @@ struct ContentView: View {
     /// Deep link reçu avant que la session soit prête (app lancée depuis le
     /// Top Shelf alors que l'utilisateur n'est pas encore authentifié)
     @State private var pendingDeepLink: DeepLink?
+    #if DEBUG
+    @State private var debugShowSettings = false
+    #endif
 
     init(jellyfinService: JellyfinService) {
         self.jellyfinService = jellyfinService
@@ -47,6 +50,15 @@ struct ContentView: View {
                     pendingDeepLink = deepLink
                 }
             }
+            #if DEBUG
+            .task {
+                await DebugLaunch.run(jellyfinService: jellyfinService, coordinator: navigationCoordinator)
+                debugShowSettings = DebugLaunch.showSettings
+            }
+            .sheet(isPresented: $debugShowSettings) {
+                SettingsView(jellyfinService: jellyfinService)
+            }
+            #endif
             .onChange(of: jellyfinService.isAuthenticated) { _, authenticated in
                 guard authenticated, let deepLink = pendingDeepLink else { return }
                 pendingDeepLink = nil

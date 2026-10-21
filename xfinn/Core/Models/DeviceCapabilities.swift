@@ -171,6 +171,17 @@ struct DeviceCapabilities {
 
     private static func defaultCapabilities(model: String) -> DeviceCapabilities {
         #if targetEnvironment(simulator)
+        // QA : XFINN_DEBUG_FULL_CAPS=1 (simctl : SIMCTL_CHILD_…) fait déclarer au
+        // simulateur les capacités d'un appareil réel (HEVC, HDR), pour obtenir
+        // du serveur le même flux qu'un iPhone ou une Apple TV
+        if ProcessInfo.processInfo.environment["XFINN_DEBUG_FULL_CAPS"] == "1" {
+            return DeviceCapabilities(
+                supportsHEVC: true, supportsHEVC10Bit: true,
+                supportsHDR10: true, supportsDolbyVision: true,
+                supportsHDR10Plus: true, supportsAV1: false,
+                maxResolution: .uhd4K, modelName: "Simulator (full caps)"
+            )
+        }
         return DeviceCapabilities(
             supportsHEVC: false, supportsHEVC10Bit: false,
             supportsHDR10: false, supportsDolbyVision: false,

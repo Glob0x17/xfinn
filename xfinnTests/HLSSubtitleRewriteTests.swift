@@ -31,6 +31,34 @@ final class HLSSubtitleRewriteTests: XCTestCase {
         XCTAssertTrue(output.contains(#"LANGUAGE="fra""#))
     }
 
+    func testMasterRewriteDropsReencodedSDRFallbackWhenCopyVariantExists() {
+        let master = """
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=88988399,VIDEO-RANGE=PQ,CODECS="hvc1.2.4.L153.B0,mp4a.40.2",SUPPLEMENTAL-CODECS="dvh1.08.06/db1p",RESOLUTION=3840x2160
+        main.m3u8?VideoCodec=hevc,h264&PlaySessionId=y
+        #EXT-X-STREAM-INF:BANDWIDTH=88988399,VIDEO-RANGE=SDR,CODECS="avc1.424033,mp4a.40.2",RESOLUTION=3840x2160
+        main.m3u8?VideoCodec=h264&PlaySessionId=y&AllowVideoStreamCopy=false
+        """
+        XCTAssertTrue(HLSSubtitleResourceLoader.hasReencodedFallbackToDrop(Data(master.utf8)))
+        let output = String(data: HLSSubtitleResourceLoader.rewriteMasterPlaylist(Data(master.utf8), baseURL: masterURL, dropReencodedFallback: true), encoding: .utf8)!
+
+        XCTAssertTrue(output.contains("hvc1.2.4.L153.B0"), output)
+        XCTAssertFalse(output.contains("avc1.424033"), output)
+        XCTAssertFalse(output.contains("AllowVideoStreamCopy=false"), output)
+    }
+
+    func testMasterRewriteKeepsFallbackWhenItIsTheOnlyVariant() {
+        let master = """
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=8000000,CODECS="avc1.640028,mp4a.40.2"
+        main.m3u8?VideoCodec=h264&AllowVideoStreamCopy=false
+        """
+        XCTAssertFalse(HLSSubtitleResourceLoader.hasReencodedFallbackToDrop(Data(master.utf8)))
+        let output = String(data: HLSSubtitleResourceLoader.rewriteMasterPlaylist(Data(master.utf8), baseURL: masterURL, dropReencodedFallback: true), encoding: .utf8)!
+
+        XCTAssertTrue(output.contains("AllowVideoStreamCopy=false"), output)
+    }
+
     // MARK: - URL du VTT fichier-entier
 
     func testWholeFileVTTURLDerivation() throws {
