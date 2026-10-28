@@ -168,6 +168,7 @@ final class PlayerManager: ObservableObject {
     private var externalPlaybackObserver: NSKeyValueObservation?
     #endif
     private var didPlayToEndObserver: NSObjectProtocol?
+    private var audioRouteObserver: NSObjectProtocol?
     private var failedToPlayToEndObserver: NSObjectProtocol?
     private var accessLogObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
@@ -394,7 +395,11 @@ final class PlayerManager: ObservableObject {
         playlist: [MediaItem]? = nil,
         playlistIndex: Int = 0
     ) async {
-        pendingNativeSubtitleChoice = nil
+        // Choix natif relevé par une relance du même média (piste, qualité,
+        // AirPlay) : à garder ; un autre média repart du comportement natif
+        if item.id != itemId {
+            pendingNativeSubtitleChoice = nil
+        }
         await startPlayback(
             item: item,
             quality: quality,
@@ -663,6 +668,23 @@ final class PlayerManager: ObservableObject {
 
     /// Relance le flux en cours à la position courante, avec les mêmes piste
     /// audio, qualité et sous-titres (lecteur bloqué en chargement)
+    #if os(tvOS)
+    /// Fichier lu en Direct Play alors que le son part vers une enceinte
+    /// AirPlay : relance en HLS à la position courante. Seulement une fois
+    /// l'item prêt : pendant une relance (nouvel item pas encore prêt), les
+    /// notifications de route en rafale ne relancent pas une seconde fois, et
+    /// le flux HLS obtenu (isTranscoding) arrête la boucle.
+    private func switchToStreamIfAirPlayDirectPlay() {
+        guard playbackMode == .video, !isTranscoding, didReachReadyToPlay,
+              player?.currentItem != nil, Self.isAirPlayOutput else { return }
+        #if DEBUG
+        print("[PlayerManager] Audio routed to AirPlay during Direct Play — switching to HLS at \(Int(currentTime))s")
+        #endif
+        didReachReadyToPlay = false
+        retryCurrentPlayback()
+    }
+    #endif
+
     func retryCurrentPlayback() {
         guard playbackMode == .video,
               let item = currentItem,
@@ -1090,6 +1112,10 @@ final class PlayerManager: ObservableObject {
         subtitleResourceLoader = nil
 
         // Retirer les observers de notifications (API block-based)
+        if let observer = audioRouteObserver {
+            NotificationCenter.default.removeObserver(observer)
+            audioRouteObserver = nil
+        }
         if let observer = didPlayToEndObserver {
             NotificationCenter.default.removeObserver(observer)
             didPlayToEndObserver = nil
@@ -1287,6 +1313,22 @@ final class PlayerManager: ObservableObject {
                 self.playerViewController = nil
             }
 
+            #if os(tvOS)
+            // Son envoyé vers un HomePod après la demande de flux (route pas encore
+            // annoncée au lancement, enceinte choisie en cours de lecture) : le
+            // fichier lu en Direct Play perd le son au bout de 20 à 40 s → relance
+            // en HLS à la position courante (getPlaybackInfo exige alors un flux)
+            audioRouteObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.switchToStreamIfAirPlayDirectPlay()
+                }
+            }
+            #endif
+
             // Observer la fin de lecture
             didPlayToEndObserver = NotificationCenter.default.addObserver(
                 forName: .AVPlayerItemDidPlayToEndTime,
@@ -1480,6 +1522,10 @@ final class PlayerManager: ObservableObject {
                 switch status {
                 case .readyToPlay:
                     self.didReachReadyToPlay = true
+                    #if os(tvOS)
+                    // Route passée en AirPlay pendant le chargement
+                    self.switchToStreamIfAirPlayDirectPlay()
+                    #endif
                     // Les renditions du manifest sont là, mais AVPlayer suit les
                     // réglages système de sous-titres — DEFAULT=YES n'est qu'un
                     // indice. La sélection de l'utilisateur doit être appliquée
