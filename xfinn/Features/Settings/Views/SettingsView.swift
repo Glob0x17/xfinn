@@ -29,7 +29,9 @@ struct SettingsView: View {
                 Section("settings.user".localized) {
                     if let user = jellyfinService.currentUser {
                         LabeledContent("settings.name".localized, value: user.name)
+                        .infoRow()
                         LabeledContent("settings.id".localized, value: user.id)
+                        .infoRow()
                     }
                 }
 
@@ -37,18 +39,36 @@ struct SettingsView: View {
                 Section("settings.server".localized) {
                     if let serverInfo = jellyfinService.serverInfo {
                         LabeledContent("settings.name".localized, value: serverInfo.serverName)
+                        .infoRow()
                         LabeledContent("settings.version".localized, value: serverInfo.version)
+                        .infoRow()
                         LabeledContent("settings.system".localized, value: serverInfo.operatingSystem)
+                        .infoRow()
                     }
 
                     LabeledContent("settings.url".localized, value: jellyfinService.serverURL)
+                    .infoRow()
                 }
 
                 // Section Application
                 Section("settings.application".localized) {
                     LabeledContent("settings.version".localized, value: Self.appVersion)
+                    .infoRow()
                     LabeledContent("Build", value: Self.buildNumber)
+                    .infoRow()
                     LabeledContent("settings.platform".localized, value: Self.platformName)
+                    .infoRow()
+
+                    // Page de choix explicite : sur tvOS, un Picker en style navigationLink
+                    // ouvre une page vide (rien ne prend le focus)
+                    NavigationLink {
+                        LanguageSelectionView()
+                    } label: {
+                        LabeledContent(
+                            "settings.language".localized,
+                            value: AppLanguage.selected.map(AppLanguage.nativeName(of:)) ?? "settings.language_system".localized
+                        )
+                    }
                 }
 
                 // Section Streaming
@@ -120,6 +140,68 @@ struct SettingsView: View {
                 Text("settings.sign_out_message".localized)
             }
         }
+    }
+}
+
+// MARK: - Language
+
+/// Choix de la langue : « Système » puis chaque langue écrite dans sa propre langue
+private struct LanguageSelectionView: View {
+    var body: some View {
+        List {
+            row(code: nil, title: "settings.language_system".localized)
+            ForEach(AppLanguage.supported, id: \.self) { code in
+                row(code: code, title: AppLanguage.nativeName(of: code))
+            }
+        }
+        .navigationTitle("settings.language".localized)
+    }
+
+    private func row(code: String?, title: String) -> some View {
+        Button {
+            // Reconstruit l'interface dans la nouvelle langue (cf. xfinnApp)
+            AppLanguage.selected = code
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                if AppLanguage.selected == code {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Presentation
+
+extension View {
+    /// Réglages : feuille sur iOS ; plein écran sur tvOS, où une feuille est une petite
+    /// carte qui tronque le titre et cache le bas de la liste
+    func settingsSheet(isPresented: Binding<Bool>, jellyfinService: JellyfinService) -> some View {
+        #if os(tvOS)
+        fullScreenCover(isPresented: isPresented) {
+            SettingsView(jellyfinService: jellyfinService)
+                // Le plein écran est transparent : sans fond, l'écran du dessous se voit à travers
+                .background(AppTheme.backgroundGradient.ignoresSafeArea())
+        }
+        #else
+        sheet(isPresented: isPresented) {
+            SettingsView(jellyfinService: jellyfinService)
+        }
+        #endif
+    }
+}
+
+private extension View {
+    /// tvOS : une ligne d'information doit pouvoir prendre le focus, sinon la
+    /// télécommande ne fait pas défiler la liste jusqu'aux réglages du bas
+    func infoRow() -> some View {
+        #if os(tvOS)
+        focusable()
+        #else
+        self
+        #endif
     }
 }
 

@@ -11,6 +11,8 @@ import SwiftUI
 struct xfinnApp: App {
     @StateObject private var jellyfinService: JellyfinService
     @StateObject private var navigationCoordinator = NavigationCoordinator()
+    /// Langue choisie dans les réglages : la changer reconstruit l'interface
+    @AppStorage("appLanguage") private var appLanguage: String?
     #if os(iOS)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
@@ -31,6 +33,9 @@ struct xfinnApp: App {
         WindowGroup {
             ContentView(jellyfinService: jellyfinService)
                 .environmentObject(navigationCoordinator)
+                .environment(\.locale, AppLanguage.locale)
+                // Les textes sont résolus à l'affichage : reconstruire l'arbre les retraduit tous
+                .id(appLanguage ?? "system")
         }
     }
 }

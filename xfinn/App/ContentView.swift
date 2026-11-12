@@ -55,9 +55,7 @@ struct ContentView: View {
                 await DebugLaunch.run(jellyfinService: jellyfinService, coordinator: navigationCoordinator)
                 debugShowSettings = DebugLaunch.showSettings
             }
-            .sheet(isPresented: $debugShowSettings) {
-                SettingsView(jellyfinService: jellyfinService)
-            }
+            .settingsSheet(isPresented: $debugShowSettings, jellyfinService: jellyfinService)
             #endif
             .onChange(of: jellyfinService.isAuthenticated) { _, authenticated in
                 guard authenticated, let deepLink = pendingDeepLink else { return }

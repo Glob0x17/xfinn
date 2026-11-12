@@ -15,6 +15,7 @@ extension UserDefaults {
     private enum Keys {
         static let deviceId = "deviceId"
         static let autoSkipIntro = "autoSkipIntro"
+        static let appLanguage = "appLanguage"
         // Note: serverURL, accessToken et userId sont maintenant dans Keychain
         // Note: preferredStreamQuality est géré par StreamQuality.save()/load() (Int)
     }
@@ -23,6 +24,12 @@ extension UserDefaults {
     var autoSkipIntro: Bool {
         get { bool(forKey: Keys.autoSkipIntro) }
         set { set(newValue, forKey: Keys.autoSkipIntro) }
+    }
+
+    /// Langue de l'interface choisie dans l'app (nil : langue du système)
+    var appLanguage: String? {
+        get { string(forKey: Keys.appLanguage) }
+        set { set(newValue, forKey: Keys.appLanguage) }
     }
 
     /// URL du serveur Jellyfin (stocké dans Keychain)

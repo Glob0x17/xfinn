@@ -1,5 +1,5 @@
 /*
-  Localizable.strings (Portuguese)
+  Localizable.strings (Portuguese, Brazil)
   xfinn
 
   Created by Dorian Galiana on 11/01/2026.
@@ -225,7 +225,7 @@
 "error.response" = "Erro de resposta: %@";
 "error.loading" = "Erro de carregamento: %@";
 "error.loading_timeout" = "O arquivo está demorando muito para carregar";
-"error.not_playable" = "Este conteúdo não pode ser reproduzido pelo leitor";
+"error.not_playable" = "Este conteúdo não pode ser reproduzido pelo player";
 "error.no_play_session" = "Sem PlaySessionId na resposta";
 "error.no_media_source" = "Sem MediaSource na resposta";
 "error.connect_failed" = "Não foi possível conectar: %@";
@@ -272,35 +272,36 @@
 "series.season_count.plural" = "%d temporadas";
 
 /* Quick Connect (added 21/08/2026) */
-"login.quick_connect" = "Iniciar sessão com um código";
+"login.quick_connect" = "Entrar com um código";
 "login.quick_connect_title" = "Quick Connect";
-"login.quick_connect_instructions" = "Introduza este código no Jellyfin\n(Perfil → Quick Connect)";
-"login.quick_connect_waiting" = "A aguardar aprovação…";
+"login.quick_connect_instructions" = "Digite este código no Jellyfin
+(Perfil → Quick Connect)";
+"login.quick_connect_waiting" = "Aguardando aprovação…";
 "login.quick_connect_expired" = "Este código expirou";
 "login.quick_connect_new_code" = "Novo código";
-"error.quick_connect_expired" = "O código Quick Connect expirou. Peça um novo.";
+"error.quick_connect_expired" = "O código Quick Connect expirou. Solicite um novo.";
 
 /* Media segments / skip intro (added 21/08/2026) */
-"player.skip_intro" = "Saltar intro";
-"player.skip_outro" = "Saltar créditos";
-"player.skip_recap" = "Saltar resumo";
-"player.stalled_title" = "A reprodução não avança";
-"player.stalled_message" = "O fluxo já não está a carregar. Pode reiniciar a reprodução a partir daqui, continuar à espera ou fechar o leitor.";
-"player.keep_waiting" = "Continuar à espera";
+"player.skip_intro" = "Pular abertura";
+"player.skip_outro" = "Pular créditos";
+"player.skip_recap" = "Pular resumo";
+"player.stalled_title" = "A reprodução travou";
+"player.stalled_message" = "O stream não está mais carregando. Você pode reiniciar a reprodução daqui, continuar esperando ou fechar o player.";
+"player.keep_waiting" = "Continuar esperando";
 "settings.playback" = "Reprodução";
-"settings.auto_skip_intro" = "Saltar intros automaticamente";
-"settings.auto_skip_intro_footer" = "Requer segmentos detetados pelo seu servidor (ex.: plugin Intro Skipper). Os créditos e resumos mantêm sempre um botão manual.";
+"settings.auto_skip_intro" = "Pular aberturas automaticamente";
+"settings.auto_skip_intro_footer" = "Requer segmentos detectados pelo seu servidor (ex.: plugin Intro Skipper). Créditos e resumos sempre têm um botão para pular manualmente.";
 
 /* Library sort & filter (added 22/08/2026) */
 "library.sort.name" = "A–Z";
 "library.sort.date_added" = "Adicionados recentemente";
 "library.sort.rating" = "Melhor avaliados";
 "library.sort.year" = "Ano";
-"library.filter.unwatched" = "Não vistos";
+"library.filter.unwatched" = "Não assistidos";
 
 /* Watched / favorites (added 22/08/2026) */
-"action.mark_watched" = "Marcar como visto";
-"action.mark_unwatched" = "Marcar como não visto";
+"action.mark_watched" = "Marcar como assistido";
+"action.mark_unwatched" = "Marcar como não assistido";
 "action.favorite" = "Adicionar aos favoritos";
 "action.unfavorite" = "Remover dos favoritos";
 "action.view_details" = "Ver detalhes";
@@ -310,3 +311,7 @@
 "media.audio" = "Áudio";
 "media.choose_audio" = "Escolha a faixa de áudio";
 "media.audio_auto" = "Auto";
+
+/* App language picker (added 12/11/2026) */
+"settings.language" = "Idioma";
+"settings.language_system" = "Sistema";

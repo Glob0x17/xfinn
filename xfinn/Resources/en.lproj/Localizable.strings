@@ -310,3 +310,7 @@
 "media.audio" = "Audio";
 "media.choose_audio" = "Choose the audio track";
 "media.audio_auto" = "Auto";
+
+/* App language picker (added 12/11/2026) */
+"settings.language" = "Language";
+"settings.language_system" = "System";

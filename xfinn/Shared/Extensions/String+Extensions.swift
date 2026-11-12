@@ -16,9 +16,9 @@ import Foundation
 // MARK: - Localization
 
 extension String {
-    /// Returns the localized version of the string
+    /// Returns the localized version of the string, in the language chosen in the settings
     var localized: String {
-        NSLocalizedString(self, comment: "")
+        NSLocalizedString(self, bundle: AppLanguage.bundle, comment: "")
     }
 
     /// Returns the localized string with format arguments

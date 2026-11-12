@@ -1,0 +1,316 @@
+/*
+  Localizable.strings (German)
+  xfinn
+
+  Created by Dorian Galiana on 12/11/2026.
+  German localization
+*/
+
+// MARK: - Common
+"common.cancel" = "Abbrechen";
+"common.continue" = "Weiter";
+"common.back" = "Zurück";
+"common.close" = "Schließen";
+"common.retry" = "Erneut versuchen";
+"common.error" = "Fehler";
+"common.loading" = "Wird geladen …";
+"common.none" = "Keine";
+"common.new" = "Neu";
+
+// MARK: - App
+"app.name" = "XFINN";
+
+// MARK: - Login
+"login.server_connection" = "Serververbindung";
+"login.server_prompt" = "Gib die Adresse deines Jellyfin-Servers ein";
+"login.server_url" = "Server-URL";
+"login.server_placeholder" = "192.168.1.100 oder jellyfin.local";
+"login.server_hint" = "Gib einfach die IP-Adresse oder den Domainnamen ein";
+"login.port_hint" = "Port 8096 wird automatisch ergänzt";
+"login.authentication" = "Anmeldung";
+"login.credentials_prompt" = "Melde dich mit deinen Zugangsdaten an";
+"login.username" = "Benutzername";
+"login.username_placeholder" = "Dein Benutzername";
+"login.password" = "Passwort";
+"login.password_placeholder" = "Dein Passwort";
+"login.sign_in" = "Anmelden";
+"login.connecting" = "Verbindung wird hergestellt …";
+"login.discovered_servers" = "Gefundene Server";
+"login.recent_servers" = "Zuletzt verwendete Server";
+"login.searching_servers" = "Suche nach Servern im Netzwerk …";
+"login.servers" = "Server";
+"login.recent_badge" = "Zuletzt";
+"login.or_manual" = "oder manuell eingeben";
+
+// MARK: - Home
+"home.search" = "Suchen";
+"home.libraries" = "Mediatheken";
+"home.hello" = "Hallo,";
+"home.welcome" = "Willkommen";
+"home.what_to_watch" = "Was möchtest du heute sehen?";
+"home.continue_watching" = "Weiterschauen";
+"home.recently_added" = "Neu hinzugefügt";
+"home.loading_content" = "Inhalte werden geladen …";
+"home.image_unavailable" = "Bild\nnicht verfügbar";
+
+// MARK: - Media Detail
+"media.streaming_quality" = "Streaming-Qualität";
+"media.choose_quality" = "Wähle die Streaming-Qualität.";
+"media.subtitles" = "Untertitel";
+"media.choose_subtitles" = "Wähle die anzuzeigenden Untertitel.";
+"media.resume_playback" = "Wiedergabe fortsetzen?";
+"media.resume_prompt" = "Möchtest du die Wiedergabe fortsetzen?";
+"media.resume_at" = "Möchtest du die Wiedergabe bei %@ fortsetzen?";
+"media.start_beginning" = "Von vorne beginnen";
+"media.movie" = "Film";
+"media.episode" = "Folge";
+"media.synopsis" = "Handlung";
+"media.now_playing" = "Läuft gerade";
+"media.resume_at_time" = "Fortsetzen bei %@";
+"media.rewatch" = "Erneut ansehen";
+"media.resume" = "Fortsetzen";
+"media.play" = "Abspielen";
+"media.playback_error" = "Wiedergabefehler";
+"media.series" = "Serie";
+"media.season_episode" = "Staffel %d, Folge %d";
+
+// MARK: - Series Detail
+"series.tv_series" = "TV-Serie";
+"series.loading_seasons" = "Staffeln werden geladen …";
+"series.no_seasons" = "Keine Staffeln";
+"series.no_seasons_message" = "Diese Serie hat keine Staffeln";
+"series.seasons" = "Staffeln";
+"series.loading_episodes" = "Folgen werden geladen …";
+"series.no_episodes" = "Keine Folgen";
+"series.no_episodes_message" = "Diese Staffel hat keine Folgen";
+"series.season" = "Staffel %d";
+"series.episode" = "Folge %d";
+"series.watched" = "Gesehen";
+
+// MARK: - Search
+"search.placeholder" = "Filme, Serien, Musik suchen …";
+"search.empty_title" = "Inhalte suchen";
+"search.empty_message" = "Tippe, um in deinen Filmen,\nSerien, Alben und Künstlern zu suchen";
+"search.no_results" = "Keine Ergebnisse";
+"search.no_results_message" = "Versuche es mit anderen Suchbegriffen";
+"search.searching" = "Suche läuft …";
+
+// MARK: - Library
+"library.my_libraries" = "Meine Mediatheken";
+"library.loading" = "Mediatheken werden geladen …";
+"library.no_libraries" = "Keine Mediatheken";
+"library.no_libraries_message" = "Auf diesem Server sind\nkeine Mediatheken verfügbar";
+"library.all_libraries" = "Alle deine Mediatheken";
+"library.type" = "Mediathek: %@";
+"library.loading_content" = "Inhalte werden geladen …";
+"library.no_content" = "Keine Inhalte";
+"library.empty_message" = "Diese Mediathek ist leer";
+
+// MARK: - Settings
+"settings.title" = "Einstellungen";
+"settings.user" = "Benutzer";
+"settings.name" = "Name";
+"settings.id" = "ID";
+"settings.server" = "Server";
+"settings.version" = "Version";
+"settings.system" = "System";
+"settings.url" = "URL";
+"settings.application" = "App";
+"settings.platform" = "Plattform";
+"settings.streaming_quality" = "Streaming-Qualität";
+"settings.selected_quality" = "Gewählte Qualität: %@";
+"settings.streaming" = "Streaming";
+"settings.quality_footer" = "Im Modus „Auto“ wird deine Verbindung automatisch getestet. Um das Transkodieren zu erzwingen, wähle eine niedrigere Bitrate als die deiner Quelldatei.";
+"settings.sign_out" = "Abmelden";
+"settings.sign_out_confirm" = "Abmelden?";
+"settings.sign_out_message" = "Möchtest du dich wirklich abmelden?";
+
+// MARK: - Next Episode
+"next_episode.title" = "Nächste Folge";
+"next_episode.auto_play" = "Automatische Wiedergabe in";
+"next_episode.play_now" = "Jetzt abspielen";
+
+// MARK: - Technical Info
+"tech.container" = "Container";
+"tech.source_bitrate" = "Quell-Bitrate";
+"tech.video" = "Video";
+"tech.resolution" = "Auflösung";
+"tech.audio" = "Audio";
+"tech.channels" = "Kanäle";
+"tech.video_transcode" = "Video-Transkodierung";
+"tech.target_bitrate" = "Ziel-Bitrate";
+"tech.direct_play" = "Direkte Wiedergabe, ohne Umwandlung";
+"tech.direct_stream" = "Direktes Streaming (Remux)";
+"tech.transcoding" = "Umwandlung in Echtzeit";
+"tech.details" = "Technische Details";
+
+// MARK: - Stream Quality
+"quality.auto" = "Auto";
+"quality.auto_desc" = "Automatischer Verbindungstest";
+"quality.maximum" = "Maximum";
+"quality.maximum_desc" = "Höchste Qualität (4K HDR)";
+"quality.4k_hdr" = "4K HDR";
+"quality.4k" = "4K";
+"quality.1080p_high" = "1080p hohe Qualität";
+"quality.1080p" = "1080p";
+"quality.720p_high" = "720p hohe Qualität";
+"quality.720p" = "720p";
+"quality.480p_high" = "480p hohe Qualität";
+"quality.480p" = "480p";
+"quality.360p" = "360p";
+"quality.240p" = "240p";
+"quality.144p" = "144p";
+
+// MARK: - Error States
+"error.occurred" = "Ein Fehler ist aufgetreten";
+"error.generic" = "Ein Fehler ist aufgetreten";
+
+// MARK: - Media Card
+"card.season" = "Staffel %d";
+"card.image_unavailable" = "Bild\nnicht verfügbar";
+
+// MARK: - Episode Row
+"episode.resume_at" = "Fortsetzen bei %@";
+
+// MARK: - Loading States
+"loading.default" = "Wird geladen …";
+"loading.connecting" = "Verbindung wird hergestellt …";
+"loading.searching" = "Suche läuft …";
+"loading.content" = "Inhalte werden geladen …";
+
+// MARK: - Library Types
+"library.type.movies" = "Filme";
+"library.type.series" = "Serien";
+"library.type.music" = "Musik";
+"library.type.photos" = "Fotos";
+"library.type.media" = "Medien";
+
+// MARK: - Library Counts
+"library.items_count" = "%d Element(e)";
+"library.libraries_available" = "%d Mediathek(en) verfügbar";
+"library.load_error" = "Die Mediatheken konnten nicht geladen werden.";
+
+// MARK: - Search Filters
+"search.filter.all" = "Alle";
+"search.filter.movies" = "Filme";
+"search.filter.series" = "Serien";
+"search.filter.episodes" = "Folgen";
+"search.filter.albums" = "Alben";
+"search.filter.artists" = "Künstler";
+"search.filter.tracks" = "Titel";
+
+// MARK: - Empty States
+"empty.no_content" = "Keine Inhalte";
+"empty.no_content_message" = "Im Moment gibt es nichts anzuzeigen";
+
+// MARK: - Media Types
+"media_type.movie" = "Film";
+"media_type.series" = "Serie";
+"media_type.episode" = "Folge";
+"media_type.season" = "Staffel";
+"media_type.music_album" = "Album";
+"media_type.music_artist" = "Künstler";
+"media_type.audio" = "Titel";
+
+// MARK: - Subtitles
+"subtitles.none" = "Keine";
+
+// MARK: - Error Messages
+"error.connection_failed" = "Verbindung zum Server nicht möglich. Bitte prüfe die URL und deine Netzwerkverbindung.";
+"error.auth_failed" = "Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.";
+"error.invalid_url" = "Die angegebene URL ist ungültig.";
+"error.network" = "Netzwerkfehler: %@";
+"error.decoding" = "Fehler beim Dekodieren der Daten: %@";
+"error.server" = "Serverfehler (Code %d)";
+"error.response" = "Antwortfehler: %@";
+"error.loading" = "Ladefehler: %@";
+"error.loading_timeout" = "Das Laden der Datei dauert zu lange";
+"error.not_playable" = "Dieses Medium kann vom Player nicht abgespielt werden";
+"error.no_play_session" = "Keine PlaySessionId in der Antwort";
+"error.no_media_source" = "Keine MediaSource in der Antwort";
+"error.connect_failed" = "Verbindung nicht möglich: %@";
+"error.auth_error" = "Anmeldung fehlgeschlagen: %@";
+"error.playback_info" = "Wiedergabeinformationen konnten nicht abgerufen werden: %@";
+
+// MARK: - Music
+"music.library_title" = "Musik";
+"music.loading_artists" = "Künstler werden geladen …";
+"music.no_artists" = "Keine Künstler";
+"music.no_artists_message" = "Diese Mediathek enthält keine Künstler";
+"music.all_artists" = "Alle Künstler";
+"music.artists_available" = "%d Künstler verfügbar";
+"music.artist" = "Künstler";
+"music.loading_albums" = "Alben werden geladen …";
+"music.no_albums" = "Keine Alben";
+"music.no_albums_message" = "Dieser Künstler hat keine Alben";
+"music.albums_count" = "%d Album/Alben";
+"music.album" = "Album";
+"music.loading_tracks" = "Titel werden geladen …";
+"music.no_tracks" = "Keine Titel";
+"music.no_tracks_message" = "Dieses Album enthält keine Titel";
+"music.tracks" = "Titel";
+"music.tracks_count" = "%d Titel";
+"music.play_all" = "Alle abspielen";
+"music.load_artists_error" = "Die Künstler konnten nicht geladen werden.";
+"music.load_albums_error" = "Die Alben konnten nicht geladen werden.";
+"music.load_tracks_error" = "Die Titel konnten nicht geladen werden.";
+"music.unknown_track" = "Unbekannter Titel";
+"music.unknown_artist" = "Unbekannter Künstler";
+
+// MARK: - Privacy
+"NSLocalNetworkUsageDescription" = "xfinn benötigt Zugriff auf dein lokales Netzwerk, um deinen Jellyfin-Medienserver zu finden und sich mit ihm zu verbinden.";
+
+/* Music player (added 18/08/2026) */
+"music.player.stop" = "Stopp";
+"music.repeat.off" = "Wiederholen";
+"music.repeat.one" = "Ein Titel";
+"music.repeat.all" = "Alle";
+"music.no_library_found" = "Keine Musikmediathek gefunden";
+"series.episode_count.singular" = "%d Folge";
+"series.episode_count.plural" = "%d Folgen";
+"series.season_count.singular" = "%d Staffel";
+"series.season_count.plural" = "%d Staffeln";
+
+/* Quick Connect (added 21/08/2026) */
+"login.quick_connect" = "Mit einem Code anmelden";
+"login.quick_connect_title" = "Quick Connect";
+"login.quick_connect_instructions" = "Gib diesen Code in Jellyfin ein\n(Profil → Quick Connect)";
+"login.quick_connect_waiting" = "Warte auf Bestätigung …";
+"login.quick_connect_expired" = "Dieser Code ist abgelaufen";
+"login.quick_connect_new_code" = "Neuer Code";
+"error.quick_connect_expired" = "Der Quick-Connect-Code ist abgelaufen. Fordere einen neuen an.";
+
+/* Media segments / skip intro (added 21/08/2026) */
+"player.skip_intro" = "Intro überspringen";
+"player.skip_outro" = "Abspann überspringen";
+"player.skip_recap" = "Rückblick überspringen";
+"player.stalled_title" = "Die Wiedergabe hängt";
+"player.stalled_message" = "Der Stream lädt nicht mehr. Du kannst die Wiedergabe von hier aus neu starten, weiter warten oder den Player schließen.";
+"player.keep_waiting" = "Weiter warten";
+"settings.playback" = "Wiedergabe";
+"settings.auto_skip_intro" = "Intros automatisch überspringen";
+"settings.auto_skip_intro_footer" = "Erfordert von deinem Server erkannte Mediensegmente (z. B. das Plugin Intro Skipper). Für Abspann und Rückblicke gibt es immer eine Taste zum manuellen Überspringen.";
+
+/* Library sort & filter (added 22/08/2026) */
+"library.sort.name" = "A–Z";
+"library.sort.date_added" = "Neu hinzugefügt";
+"library.sort.rating" = "Am besten bewertet";
+"library.sort.year" = "Jahr";
+"library.filter.unwatched" = "Nicht gesehen";
+
+/* Watched / favorites (added 22/08/2026) */
+"action.mark_watched" = "Als gesehen markieren";
+"action.mark_unwatched" = "Als nicht gesehen markieren";
+"action.favorite" = "Zu Favoriten hinzufügen";
+"action.unfavorite" = "Aus Favoriten entfernen";
+"action.view_details" = "Details anzeigen";
+"home.favorites" = "Favoriten";
+
+/* Audio track picker (added 22/08/2026) */
+"media.audio" = "Audio";
+"media.choose_audio" = "Wähle die Audiospur";
+"media.audio_auto" = "Auto";
+
+/* App language picker (added 12/11/2026) */
+"settings.language" = "Sprache";
+"settings.language_system" = "System";

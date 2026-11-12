@@ -41,9 +41,7 @@ struct HomeView: View {
     @Namespace private var focusNamespace
     @FocusState private var focus: HomeFocus?
     @State private var showLogoutConfirmation = false
-    #if os(iOS)
     @State private var showSettings = false
-    #endif
 
     // Particules déterministes pour éviter les variations visuelles entre affichages
     private static let particlePreset: [ParticleData] = (0..<8).map { index in
@@ -215,6 +213,19 @@ struct HomeView: View {
                 #else
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        showSettings = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: toolbarIconSize))
+                            Text("settings.title".localized)
+                                .font(.system(size: toolbarLabelSize, weight: .semibold))
+                        }
+                        .foregroundColor(.appTextSecondary)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
                         showLogoutConfirmation = true
                     } label: {
                         HStack(spacing: 6) {
@@ -229,11 +240,7 @@ struct HomeView: View {
                 }
                 #endif
             }
-            #if os(iOS)
-            .sheet(isPresented: $showSettings) {
-                SettingsView(jellyfinService: jellyfinService)
-            }
-            #endif
+            .settingsSheet(isPresented: $showSettings, jellyfinService: jellyfinService)
             .alert("settings.sign_out_confirm".localized, isPresented: $showLogoutConfirmation) {
                 Button("common.cancel".localized, role: .cancel) {}
                 Button("settings.sign_out".localized, role: .destructive) {

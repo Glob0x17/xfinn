@@ -16,7 +16,6 @@ struct LibraryView: View {
     @State private var hasLoaded = false
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var showSettings = false
     
     var body: some View {
         ZStack {
@@ -33,20 +32,6 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("library.my_libraries".localized)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: AppTheme.fs(26)))
-                        .foregroundColor(.appTextSecondary)
-                }
-            }
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(jellyfinService: jellyfinService)
-        }
         .alert("common.error".localized, isPresented: $showError) {
             Button("OK", role: .cancel) { }
             Button("common.retry".localized) {
